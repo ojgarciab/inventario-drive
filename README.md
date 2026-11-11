@@ -104,12 +104,19 @@ identificador de cliente, que es público.
        se solicita no es sensible ni restringido, así que no hace falta la
        revisión de seguridad de Google; solo se le pedirá verificar la marca
        si quiere mostrar logotipo.
-   - **Acceso a los datos** (*Data Access*) → *Añadir o quitar permisos* →
+   - **Acceso a los datos** (*Data Access*) → *Agregar o quitar permisos* →
      marque únicamente:
 
      ```
      https://www.googleapis.com/auth/drive.appdata
      ```
+
+     La lista está paginada de 10 en 10 y el permiso no sale en la primera
+     página: escriba `appdata` en el campo *Filtro* y pulse Intro. Aparece
+     como «Google Drive API — …/auth/drive.appdata». Márquelo, pulse
+     *Actualizar* y después *Save* al pie de la página. (Solo se listan los
+     permisos de las API habilitadas, por eso hay que habilitar antes la de
+     Drive.)
 
 4. **Crear el cliente OAuth**. *Google Auth Platform → Clientes → Crear
    cliente*:

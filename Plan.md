@@ -265,7 +265,8 @@ ngsw-config.json
   `about.get?fields=user` de Drive, sin pedir más permisos.
 - **`authInterceptor`**: añade `Authorization: Bearer …` a las llamadas a
   `googleapis.com`. Ante un 401 intenta una renovación silenciosa
-  (`requestAccessToken({prompt: ''})`) y reintenta una vez; si el navegador
+  (`requestAccessToken({prompt: '', login_hint: correo})`, para que Google no
+  muestre el selector de cuentas) y reintenta una vez; si el navegador
   bloquea la ventana por no haber gesto del usuario, muestra un botón
   «Reanudar sesión».
 - **`DriveApiService`**: envoltorio fino de la API REST v3 (`files.list`,
@@ -445,3 +446,21 @@ compartido entre cuentas (`drive.file`), historial de movimientos.
 
 La fase 0 se ejecuta con la página `poc/index.html` (instrucciones en el
 `README.md`).
+
+### 9.1 Resultados de la fase 0 (11-11-2026)
+
+Ejecutada contra la API real con el proyecto `inventario-hogar`.
+
+| Supuesto | Resultado |
+|---|---|
+| `about.get` solo con `drive.appdata` | Confirmado: devuelve nombre, correo y foto |
+| `files.generateIds` con `space=appDataFolder` | Confirmado; el id pregenerado se respeta al crear |
+| Archivo solo con metadatos | Confirmado: `size=0` y `quotaBytesUsed=0`, no consume almacenamiento |
+| `files.list` devuelve todos los metadatos | Confirmado |
+| `PATCH` fusiona `appProperties` por clave | Confirmado; además `modifiedTime` cambia con cambios de metadatos, así que sirve para detectar ediciones obsoletas |
+| `changes.list` en `appDataFolder` | Confirmado: el cambio aparece entre 0,4 y 2,7 s después (dos ejecuciones) con los metadatos nuevos; los borrados llegan con `removed=true` |
+| Longitud de `description` | Admite 16 000 caracteres de 2 bytes y rechaza 32 000. **Decisión**: las notas se limitan a 8 000 caracteres en el formulario (margen suficiente aunque el límite sea en bytes) |
+| Límite de `appProperties` | Confirmado: 124 bytes admitido, 125 rechazado |
+| Subida `multipart` y descarga de fotos | Confirmado; la foto ocupa exactamente sus bytes |
+| Hoja de cálculo en `appDataFolder` | Confirmado que no es posible: «Method not supported for files within the Application Data folder» |
+| Renovación silenciosa del token | Sin `login_hint` Google muestra el selector de cuentas; con `login_hint` se obtiene un token nuevo en ~2 s sin intervención. **Decisión**: `AuthService` guarda el correo de la sesión y lo pasa como `login_hint`. Probado en escritorio; falta comprobarlo en móvil (fase 2) |
