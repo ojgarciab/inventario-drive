@@ -1,0 +1,20 @@
+<mat-card appearance="outlined">
+  <mat-card-header>
+    <mat-card-title>Aplicación en construcción</mat-card-title>
+    <mat-card-subtitle>Fase 1: esqueleto instalable</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <p>
+      Aquí estará el inventario de casa: contenedores anidados, objetos y su ubicación, guardados en
+      Google Drive.
+    </p>
+    <dl>
+      <dt>Identificador de cliente de Google</dt>
+      <dd data-testid="cliente">{{ clienteConfigurado ? 'Configurado' : 'Sin configurar' }}</dd>
+      <dt>Service worker</dt>
+      <dd data-testid="sw">
+        {{ serviceWorkerActivo ? 'Activo' : 'Inactivo (solo se activa en producción)' }}
+      </dd>
+    </dl>
+  </mat-card-content>
+</mat-card>

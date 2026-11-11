@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fase 0 — Prueba de concepto</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.45 system-ui, sans-serif; margin: 0 auto; max-width: 46rem; padding: 1rem; }
+  h1 { font-size: 1.3rem; }
+  label { display: block; font-size: .85rem; margin-bottom: .25rem; }
+  input[type=text] { box-sizing: border-box; font: inherit; padding: .5rem; width: 100%; }
+  .acciones { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+  button { font: inherit; padding: .55rem .9rem; }
+  #estado { font-size: .9rem; min-height: 1.4em; }
+  ol { list-style: none; padding: 0; }
+  li { border: 1px solid #8884; border-radius: .5rem; margin: .5rem 0; padding: .6rem .75rem; }
+  li strong { display: block; }
+  li small { display: block; opacity: .75; overflow-wrap: anywhere; }
+  .ok { border-left: .4rem solid #2a9d4b; }
+  .fallo { border-left: .4rem solid #d33; }
+  .info { border-left: .4rem solid #d99a00; }
+  .pendiente { border-left: .4rem solid #8886; }
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+<h1>Inventario — fase 0: supuestos sobre la API de Drive</h1>
+<p>Crea archivos de prueba en <code>appDataFolder</code>, comprueba los supuestos
+de la sección 9 del plan y los borra al terminar. Debe servirse desde
+<code>http://localhost:4200</code>.</p>
+
+<label for="cid">Identificador de cliente OAuth</label>
+<input id="cid" type="text" placeholder="…apps.googleusercontent.com" autocomplete="off">
+
+<div class="acciones">
+  <button id="entrar">1. Iniciar sesión</button>
+  <button id="probar" disabled>2. Ejecutar pruebas</button>
+  <button id="renovar" disabled>3. Renovar token en silencio</button>
+  <button id="copiar" disabled>Copiar resultados</button>
+</div>
+<p id="estado"></p>
+<ol id="lista"></ol>
+
+<script>
+'use strict';
+const SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+const API = 'https://www.googleapis.com/drive/v3';
+const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+const $ = (id) => document.getElementById(id);
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+let token = null;
+let cuenta = null;     // correo de la sesión actual, usado como login_hint
+let creados = [];      // ids creados en esta ejecución (para limpiar)
+let resultados = [];
+
+$('cid').value = localStorage.getItem('poc.cid') || '';
+
+function estado(texto) { $('estado').textContent = texto; }
+
+function pedirToken(opciones) {
+  const clientId = $('cid').value.trim();
+  if (!clientId) { estado('Falta el identificador de cliente.'); return; }
+  if (!window.google?.accounts?.oauth2) { estado('No se ha cargado Google Identity Services.'); return; }
+  localStorage.setItem('poc.cid', clientId);
+  const inicio = Date.now();
+  const cliente = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPE,
+    callback: (r) => {
+      if (r.error) { estado(`Error de sesión: ${r.error} ${r.error_description || ''}`); return; }
+      token = r.access_token;
+      $('probar').disabled = false;
+      $('renovar').disabled = false;
+      estado(`Token obtenido en ${Date.now() - inicio} ms; caduca en ${r.expires_in} s; permisos: ${r.scope}`);
+      // La cuenta se recuerda (solo en memoria) para que la renovación no muestre el selector de cuentas.
+      json('GET', '/about', { query: { fields: 'user(emailAddress)' } })
+        .then((a) => { cuenta = a.user?.emailAddress || null; })
+        .catch(() => {});
+      if (opciones) anotar('renovacion', 'Renovación silenciosa del token', 'ok',
+        `Token nuevo en ${Date.now() - inicio} ms (${opciones.login_hint ? 'con' : 'sin'} login_hint).`);
+    },
+    error_callback: (e) => {
+      estado(`Error de sesión: ${e.type} ${e.message || ''}`);
+      if (opciones) anotar('renovacion', 'Renovación silenciosa del token', 'fallo', `${e.type}: ${e.message || ''}`);
+    },
+  });
+  cliente.requestAccessToken(opciones || {});
+}
+
+async function api(metodo, ruta, { query, body } = {}) {
+  const url = new URL(ruta.startsWith('http') ? ruta : API + ruta);
+  for (const [k, v] of Object.entries(query || {})) url.searchParams.set(k, v);
+  const res = await fetch(url, {
+    method: metodo,
+    headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const texto = await res.text();
+    let msg = texto;
+    try { msg = JSON.parse(texto).error.message; } catch { /* texto plano */ }
+    throw new Error(`HTTP ${res.status}: ${msg}`);
+  }
+  return res;
+}
+const json = async (...a) => { const r = await api(...a); return r.status === 204 ? null : r.json(); };
+
+function anotar(id, titulo, tipo, detalle) {
+  const previo = resultados.findIndex((r) => r.id === id);
+  const r = { id, titulo, tipo, detalle };
+  if (previo >= 0) resultados[previo] = r; else resultados.push(r);
+  pintar();
+}
+
+function pintar() {
+  const lista = $('lista');
+  lista.replaceChildren(...resultados.map((r) => {
+    const li = document.createElement('li');
+    li.className = r.tipo;
+    const t = document.createElement('strong');
+    t.textContent = `${{ ok: '✔', fallo: '✘', info: '●', pendiente: '…' }[r.tipo]} ${r.titulo}`;
+    const d = document.createElement('small');
+    d.textContent = r.detalle;
+    li.append(t, d);
+    return li;
+  }));
+  $('copiar').disabled = resultados.length === 0;
+}
+
+// Cada prueba devuelve [tipo, detalle]; si lanza una excepción cuenta como fallo.
+const ctx = {};
+const pruebas = [
+  ['about', 'about.get funciona solo con drive.appdata', async () => {
+    const r = await json('GET', '/about', { query: { fields: 'user(displayName,emailAddress,photoLink),storageQuota' } });
+    ctx.cuota = r.storageQuota;
+    const campos = ['displayName', 'emailAddress', 'photoLink'].filter((c) => r.user?.[c]);
+    return [campos.length === 3 ? 'ok' : 'info', `Campos de usuario devueltos: ${campos.join(', ') || 'ninguno'}.`];
+  }],
+
+  ['ids', 'files.generateIds admite space=appDataFolder', async () => {
+    const r = await json('GET', '/files/generateIds', { query: { count: 3, space: 'appDataFolder' } });
+    ctx.ids = r.ids;
+    return ['ok', `${r.ids.length} identificadores generados.`];
+  }],
+
+  ['crear', 'Crear entidad solo con metadatos (id pregenerado)', async () => {
+    const cuerpo = {
+      name: 'poc-Caja de cartón ñ',
+      description: 'Notas de prueba',
+      parents: ['appDataFolder'],
+      appProperties: { k: 'c', p: 'padre-1', t: 'tipo-caja', v: '1' },
+    };
+    if (ctx.ids?.[0]) cuerpo.id = ctx.ids[0];
+    const r = await json('POST', '/files', {
+      query: { fields: 'id,name,description,appProperties,modifiedTime,size,quotaBytesUsed,mimeType' },
+      body: cuerpo,
+    });
+    creados.push(r.id);
+    ctx.entidad = r;
+    const idOk = !cuerpo.id || r.id === cuerpo.id;
+    return [idOk ? 'ok' : 'fallo',
+      `id ${idOk ? 'respetado' : 'NO respetado'}; mimeType=${r.mimeType}; size=${r.size}; quotaBytesUsed=${r.quotaBytesUsed}.`];
+  }],
+
+  ['espacio', 'Un archivo sin contenido no consume almacenamiento', async () => {
+    const e = ctx.entidad;
+    const cero = String(e.quotaBytesUsed ?? '0') === '0';
+    return [cero ? 'ok' : 'info', `quotaBytesUsed=${e.quotaBytesUsed}; size=${e.size}.`];
+  }],
+
+  ['listar', 'files.list devuelve los metadatos en bloque', async () => {
+    const r = await json('GET', '/files', {
+      query: { spaces: 'appDataFolder', pageSize: 1000, fields: 'nextPageToken,files(id,name,description,appProperties,modifiedTime)' },
+    });
+    const f = r.files.find((x) => x.id === ctx.entidad.id);
+    const completo = f && f.name && f.description && f.appProperties?.p === 'padre-1';
+    return [completo ? 'ok' : 'fallo', `${r.files.length} archivos en appDataFolder; entidad de prueba ${completo ? 'con todos sus campos' : 'incompleta o ausente'}.`];
+  }],
+
+  ['mover', 'PATCH de una propiedad: fusión por clave y modifiedTime', async () => {
+    ctx.pageToken = (await json('GET', '/changes/startPageToken')).startPageToken;
+    await espera(1100);
+    const r = await json('PATCH', `/files/${ctx.entidad.id}`, {
+      query: { fields: 'appProperties,modifiedTime' },
+      body: { appProperties: { p: 'padre-2' } },
+    });
+    const fusion = r.appProperties.p === 'padre-2' && r.appProperties.k === 'c' && r.appProperties.t === 'tipo-caja';
+    const cambiaFecha = r.modifiedTime !== ctx.entidad.modifiedTime;
+    return [fusion ? (cambiaFecha ? 'ok' : 'info') : 'fallo',
+      `Fusión por clave: ${fusion ? 'sí' : 'NO'}; modifiedTime ${cambiaFecha ? 'cambia' : 'NO cambia'} con un cambio de metadatos.`];
+  }],
+
+  ['cambios', 'changes.list informa de cambios de metadatos en appDataFolder', async () => {
+    const inicio = Date.now();
+    for (let i = 0; i < 8; i++) {
+      const r = await json('GET', '/changes', {
+        query: { pageToken: ctx.pageToken, spaces: 'appDataFolder', fields: 'newStartPageToken,nextPageToken,changes(fileId,removed,file(id,appProperties,modifiedTime))' },
+      });
+      const c = r.changes.find((x) => x.fileId === ctx.entidad.id);
+      if (c) {
+        ctx.pageToken = r.newStartPageToken || r.nextPageToken || ctx.pageToken;
+        const conDatos = c.file?.appProperties?.p === 'padre-2';
+        return [conDatos ? 'ok' : 'info', `Cambio visible tras ${Date.now() - inicio} ms (${i + 1} consultas); ${conDatos ? 'incluye' : 'NO incluye'} los metadatos nuevos.`];
+      }
+      await espera(2000);
+    }
+    return ['fallo', 'El cambio no apareció en 16 s.'];
+  }],
+
+  ['descripcion', 'Longitud máxima de description', async () => {
+    let maximo = 0, error = '';
+    for (const n of [1000, 4000, 16000, 32000, 65000, 130000]) {
+      try {
+        await api('PATCH', `/files/${ctx.entidad.id}`, { query: { fields: 'id' }, body: { description: 'ñ'.repeat(n) } });
+        maximo = n;
+      } catch (e) { error = `falla con ${n}: ${e.message.slice(0, 120)}`; break; }
+    }
+    await api('PATCH', `/files/${ctx.entidad.id}`, { query: { fields: 'id' }, body: { description: 'Notas de prueba' } });
+    return [maximo >= 4000 ? 'ok' : 'fallo', `Admite al menos ${maximo} caracteres${error ? '; ' + error : ' (no se ha encontrado el límite)'}.`];
+  }],
+
+  ['propiedades', 'Límite de 124 bytes por propiedad', async () => {
+    let justo = false, excedido = false;
+    try { await api('PATCH', `/files/${ctx.entidad.id}`, { query: { fields: 'id' }, body: { appProperties: { x: 'a'.repeat(123) } } }); justo = true; } catch { /* no admitido */ }
+    try { await api('PATCH', `/files/${ctx.entidad.id}`, { query: { fields: 'id' }, body: { appProperties: { x: 'a'.repeat(124) } } }); excedido = true; } catch { /* esperado */ }
+    await api('PATCH', `/files/${ctx.entidad.id}`, { query: { fields: 'id' }, body: { appProperties: { x: null } } });
+    return [justo && !excedido ? 'ok' : 'info', `124 bytes: ${justo ? 'admitido' : 'rechazado'}; 125 bytes: ${excedido ? 'admitido' : 'rechazado'}.`];
+  }],
+
+  ['foto', 'Subir y descargar una fotografía', async () => {
+    const lienzo = document.createElement('canvas');
+    lienzo.width = lienzo.height = 64;
+    const g = lienzo.getContext('2d');
+    g.fillStyle = '#c33'; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#fff'; g.fillRect(16, 16, 32, 32);
+    const imagen = await new Promise((r) => lienzo.toBlob(r, 'image/jpeg', 0.8));
+    const meta = { name: 'poc-foto.jpg', parents: ['appDataFolder'], appProperties: { k: 'f', p: ctx.entidad.id } };
+    if (ctx.ids?.[1]) meta.id = ctx.ids[1];
+    const limite = 'poc' + Math.random().toString(36).slice(2);
+    const cuerpo = new Blob([
+      `--${limite}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+      `--${limite}\r\nContent-Type: image/jpeg\r\n\r\n`, imagen, `\r\n--${limite}--`,
+    ]);
+    const res = await fetch(`${UPLOAD}/files?uploadType=multipart&fields=id,size,quotaBytesUsed`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${limite}` },
+      body: cuerpo,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const f = await res.json();
+    creados.push(f.id);
+    const bajada = await (await api('GET', `/files/${f.id}`, { query: { alt: 'media' } })).blob();
+    const igual = bajada.size === imagen.size;
+    return [igual ? 'ok' : 'fallo', `Subidos ${imagen.size} bytes, descargados ${bajada.size}; quotaBytesUsed=${f.quotaBytesUsed}.`];
+  }],
+
+  ['hoja', 'Una hoja de cálculo de Google NO se puede crear en appDataFolder', async () => {
+    try {
+      const r = await json('POST', '/files', {
+        query: { fields: 'id' },
+        body: { name: 'poc-hoja', mimeType: 'application/vnd.google-apps.spreadsheet', parents: ['appDataFolder'] },
+      });
+      creados.push(r.id);
+      return ['info', 'Drive SÍ ha permitido crearla (revisar el argumento del plan).'];
+    } catch (e) {
+      return ['ok', `Rechazada: ${e.message.slice(0, 160)}`];
+    }
+  }],
+
+  ['borrar', 'Borrado y aviso de borrado en changes.list', async () => {
+    const ids = [...creados];
+    for (const id of ids) await api('DELETE', `/files/${id}`);
+    creados = [];
+    let visto = false;
+    for (let i = 0; i < 8 && !visto; i++) {
+      const r = await json('GET', '/changes', {
+        query: { pageToken: ctx.pageToken, spaces: 'appDataFolder', fields: 'newStartPageToken,nextPageToken,changes(fileId,removed)' },
+      });
+      visto = r.changes.some((c) => c.fileId === ctx.entidad.id && c.removed);
+      if (!visto) await espera(2000);
+    }
+    const resto = await json('GET', '/files', { query: { spaces: 'appDataFolder', q: "name contains 'poc-'", fields: 'files(id)' } });
+    return [visto && resto.files.length === 0 ? 'ok' : 'info',
+      `${ids.length} archivos borrados; aviso removed=true ${visto ? 'recibido' : 'NO recibido'}; quedan ${resto.files.length} archivos de prueba.`];
+  }],
+];
+
+async function ejecutar() {
+  $('probar').disabled = true;
+  resultados = resultados.filter((r) => r.id === 'renovacion');
+  for (const k of Object.keys(ctx)) delete ctx[k];
+  for (const [id, titulo] of pruebas) anotar(id, titulo, 'pendiente', 'Pendiente');
+  for (const [id, titulo, fn] of pruebas) {
+    estado(`Ejecutando: ${titulo}…`);
+    try {
+      const [tipo, detalle] = await fn();
+      anotar(id, titulo, tipo, detalle);
+    } catch (e) {
+      anotar(id, titulo, 'fallo', e.message);
+    }
+  }
+  // Limpieza de seguridad si alguna prueba falló antes del borrado.
+  for (const id of creados) { try { await api('DELETE', `/files/${id}`); } catch { /* ya no existe */ } }
+  creados = [];
+  estado('Pruebas terminadas. Pulse «Copiar resultados» y péguelos en la conversación.');
+  $('probar').disabled = false;
+}
+
+$('entrar').addEventListener('click', () => pedirToken());
+$('renovar').addEventListener('click', () => pedirToken(cuenta ? { prompt: '', login_hint: cuenta } : { prompt: '' }));
+$('probar').addEventListener('click', ejecutar);
+$('copiar').addEventListener('click', async () => {
+  const texto = resultados.map((r) => `[${r.tipo}] ${r.titulo} — ${r.detalle}`).join('\n');
+  try { await navigator.clipboard.writeText(texto); estado('Resultados copiados al portapapeles.'); }
+  catch { estado('No se pudo copiar; seleccione el texto de la lista a mano.'); }
+});
+</script>
+</body>
+</html>

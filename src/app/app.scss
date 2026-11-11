@@ -1,0 +1,20 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+mat-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+main {
+  box-sizing: border-box;
+  flex: 1;
+  margin: 0 auto;
+  max-width: 840px;
+  padding: 16px;
+  width: 100%;
+}
