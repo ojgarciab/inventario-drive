@@ -46,7 +46,8 @@ Producción: <https://inventario.linaresdigital.com>
 El diseño detallado, la arquitectura y las fases de implementación están en
 [Plan.md](Plan.md).
 
-> **Estado**: fase 0 (prueba de concepto). Todavía no hay código de aplicación.
+> **Estado**: fase 1 (esqueleto instalable). La aplicación todavía no gestiona
+> el inventario.
 
 ## Prueba de concepto (fase 0)
 
@@ -195,9 +196,11 @@ y dominio personalizado de Pages.
 
 ## Desarrollo local
 
-> Disponible cuando exista el esqueleto de la aplicación (fase 1 del plan).
+Requisitos: Node.js 24 (ver `.nvmrc`; Angular 22 exige 24.15 o posterior) y npm.
 
-Requisitos: Node.js LTS y npm.
+```bash
+nvm use
+```
 
 ```bash
 npm ci
@@ -215,6 +218,18 @@ npm start
 
 La aplicación queda en <http://localhost:4200>, que debe figurar entre los
 orígenes de JavaScript autorizados del cliente OAuth.
+
+| Orden | Qué hace |
+|---|---|
+| `npm start` | Servidor de desarrollo con recarga |
+| `npm test -- --watch=false` | Pruebas unitarias (Vitest) |
+| `npm run lint` | ESLint |
+| `npm run build` | Compilación de producción en `dist/inventario-drive/browser` |
+
+Todas ejecutan antes `scripts/set-env.mjs`, que genera
+`src/environments/environment.ts` (no versionado) a partir de `.env` o de la
+variable de entorno `GOOGLE_CLIENT_ID`. El service worker solo se activa en la
+compilación de producción.
 
 ## Privacidad y copias de seguridad
 

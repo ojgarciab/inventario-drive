@@ -368,8 +368,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: lts/*, cache: npm }
       - run: npm ci
       - run: node scripts/set-env.mjs
@@ -377,7 +377,7 @@ jobs:
       - run: npm test -- --watch=false
       - run: npx ng build --configuration production
       - run: cp dist/inventario-drive/browser/index.html dist/inventario-drive/browser/404.html
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with: { path: dist/inventario-drive/browser }
   deploy:
     needs: build
@@ -385,7 +385,7 @@ jobs:
     environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
     steps:
       - id: d
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 ```
 
 (Usar las versiones mayores vigentes de cada acción al implementarlo.) La copia
