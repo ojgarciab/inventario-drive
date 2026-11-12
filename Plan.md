@@ -401,6 +401,26 @@ contenedor u objeto en las fichas); al cambiar de pantalla el foco pasa al
 contenido; hay un enlace «Saltar al contenido» para teclado; los botones de
 solo icono llevan etiqueta.
 
+### 5.5.1 Privacidad y textos legales
+
+- `public/privacidad.html` y `public/condiciones.html` son páginas estáticas
+  (no rutas de la aplicación) para que respondan con código 200 y sin
+  JavaScript; GitHub Pages devolvería 404 en una ruta interna, y Google las
+  comprueba al publicar la pantalla de consentimiento.
+- Las tipografías (Roboto) y los iconos (Material Symbols) se sirven desde el
+  propio sitio (`@fontsource/roboto`, `@material-symbols/font-400`). Cargarlas
+  de Google Fonts enviaba la dirección IP del visitante a Google antes de que
+  aceptara nada.
+- La aplicación no usa cookies. Lo que guarda en el navegador (sesión,
+  cuenta, tema, sincronización, caché de fotos y archivos de la aplicación)
+  es estrictamente necesario para el servicio solicitado, por lo que está
+  exento de consentimiento (art. 22.2 LSSI, art. 5.3 de la Directiva
+  2002/58/CE). Por eso la pantalla de inicio de sesión informa de ello y
+  enlaza los textos, sin casilla de aceptación.
+- Si se añade cualquier almacenamiento no imprescindible (analítica,
+  medición, publicidad), esa exención deja de aplicarse y hará falta
+  consentimiento previo y revisar ambos textos.
+
 ### 5.6 PWA y service worker
 
 - `manifest.webmanifest`: `display: standalone`, iconos 192/512 normales y
@@ -413,7 +433,7 @@ solo icono llevan etiqueta.
   `script-src 'self' https://accounts.google.com/gsi/client`; `connect-src
   'self' https://www.googleapis.com https://accounts.google.com`; `frame-src
   https://accounts.google.com`; `img-src 'self' blob: data:
-  https://*.googleusercontent.com`; estilos y fuentes de Google Fonts. La
+  https://*.googleusercontent.com`; tipografías solo del propio sitio. La
   compilación de producción desactiva el CSS crítico en línea
   (`inlineCritical: false`) porque usa un manejador `onload` que la política
   bloquearía.

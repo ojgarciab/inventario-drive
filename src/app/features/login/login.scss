@@ -19,3 +19,24 @@ button {
 .error {
   color: var(--mat-sys-error);
 }
+
+.legal {
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+  margin: 24px auto 0;
+  max-width: 480px;
+
+  h2 {
+    color: var(--mat-sys-on-surface);
+    font: var(--mat-sys-title-small);
+    margin: 0 0 8px;
+  }
+
+  p {
+    margin: 0 0 8px;
+  }
+
+  a {
+    color: var(--mat-sys-primary);
+  }
+}

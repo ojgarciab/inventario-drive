@@ -100,6 +100,17 @@ identificador de cliente, que es público.
    - **Información de la marca** (*Branding*): nombre de la aplicación, correo
      de asistencia, y en *Dominios autorizados* añada `linaresdigital.com`
      (su dominio, sin subdominio).
+     Para poder publicar la aplicación, rellene también:
+
+     | Campo | Valor |
+     |---|---|
+     | Página principal de la aplicación | `https://inventario.linaresdigital.com/` |
+     | Política de Privacidad | `https://inventario.linaresdigital.com/privacidad.html` |
+     | Condiciones del Servicio | `https://inventario.linaresdigital.com/condiciones.html` |
+
+     Los dos textos están en `public/privacidad.html` y
+     `public/condiciones.html`: si despliega su propia instancia, cambie en
+     ellos el titular, el dominio y la vía de contacto.
    - **Público** (*Audience*): tipo de usuario **Externo**.
      - En estado *Prueba* solo podrán entrar las cuentas que añada como
        *usuarios de prueba* (máximo 100). Para uso en casa basta con añadir
@@ -241,6 +252,13 @@ variable de entorno `GOOGLE_CLIENT_ID`. El service worker solo se activa en la
 compilación de producción.
 
 ## Privacidad y copias de seguridad
+
+- [Política de privacidad](public/privacidad.html) y
+  [Condiciones del servicio](public/condiciones.html), publicadas con la
+  aplicación y enlazadas desde la pantalla de inicio de sesión y desde
+  *Ajustes*.
+- La aplicación no usa cookies ni carga nada de terceros antes de iniciar
+  sesión: las tipografías y los iconos se sirven desde el propio sitio.
 
 - La aplicación no envía datos a ningún servidor distinto de Google.
 - Los archivos de `appDataFolder` no aparecen en la interfaz de Drive. Se

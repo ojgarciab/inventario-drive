@@ -30,4 +30,18 @@ describe('Login', () => {
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Se cerró la ventana');
     expect(el.querySelector('button')?.disabled).toBe(false);
   });
+
+  it('informa del almacenamiento en el navegador y enlaza los textos legales', async () => {
+    const fixture = await render(() => Promise.resolve());
+    const legal = (fixture.nativeElement as HTMLElement).querySelector('.legal');
+
+    expect(legal?.textContent).toContain('no usa cookies');
+    expect(legal?.textContent).toContain('Al iniciar sesión acepta');
+    const links = [...(legal?.querySelectorAll('a') ?? [])];
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      'condiciones.html',
+      'privacidad.html',
+    ]);
+    expect(links.every((a) => a.target === '_blank' && a.rel === 'noopener')).toBe(true);
+  });
 });

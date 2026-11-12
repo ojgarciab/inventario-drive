@@ -33,6 +33,10 @@
               }
             ],
             "styles": [
+              "@fontsource/roboto/300.css",
+              "@fontsource/roboto/400.css",
+              "@fontsource/roboto/500.css",
+              "@material-symbols/font-400/outlined.css",
               "src/styles.scss"
             ]
           },
