@@ -36,10 +36,14 @@ export class PhotoService {
     return url;
   }
 
+  /** Contenido de la foto, de la caché del dispositivo o descargado. */
+  blob(photoId: EntityId): Promise<Blob> {
+    return this.load(photoId);
+  }
+
   /** Pone una foto a la entidad, sustituyendo la que tuviera. */
   async attach(entityId: EntityId, image: Blob): Promise<void> {
-    const entity = this.store.get(entityId);
-    if (!entity) throw new InventoryError('not_found');
+    if (!this.store.get(entityId)) throw new InventoryError('not_found');
     this.assertOnline();
     let resized: Blob;
     try {
@@ -47,8 +51,15 @@ export class PhotoService {
     } catch {
       throw new InventoryError('invalid_image');
     }
+    await this.attachStored(entityId, resized);
+  }
 
-    const photoId = await this.repository.uploadPhoto(entityId, resized);
+  /** Pone una foto ya reducida (por ejemplo, de una copia de seguridad) tal cual. */
+  async attachStored(entityId: EntityId, image: Blob): Promise<void> {
+    const entity = this.store.get(entityId);
+    if (!entity) throw new InventoryError('not_found');
+    this.assertOnline();
+    const photoId = await this.repository.uploadPhoto(entityId, image);
     try {
       await this.store.update(entityId, { photoId });
     } catch (error) {
@@ -56,7 +67,7 @@ export class PhotoService {
       await this.repository.deletePhoto(photoId).catch(() => undefined);
       throw error;
     }
-    await this.remember(photoId, resized);
+    await this.remember(photoId, image);
     if (entity.photoId) await this.discard(entity.photoId);
   }
 

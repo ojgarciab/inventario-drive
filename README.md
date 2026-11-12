@@ -46,9 +46,10 @@ Producción: <https://inventario.linaresdigital.com>
 El diseño detallado, la arquitectura y las fases de implementación están en
 [Plan.md](Plan.md).
 
-> **Estado**: fase 8 (fotografías). Ya se pueden crear, editar, mover,
-> eliminar, buscar y fotografiar contenedores y objetos, con sincronización
-> entre dispositivos; faltan los ajustes (tipos configurables y copias).
+> **Estado**: fase 9 (ajustes). La aplicación es funcionalmente completa:
+> contenedores y objetos con fotos, búsqueda, sincronización entre
+> dispositivos, tipos configurables y copias de seguridad. Queda el pulido
+> final (accesibilidad, iconos, aviso de actualización).
 
 ## Prueba de concepto (fase 0)
 
@@ -244,9 +245,9 @@ compilación de producción.
   pueden eliminar en Drive → *Configuración → Gestionar aplicaciones* →
   *Eliminar datos ocultos de aplicaciones*; esa acción borra el inventario.
 - Para revocar el acceso: <https://myaccount.google.com/permissions>.
-- La aplicación incluirá exportación de los datos en JSON y de las
-  fotografías en ZIP, e importación, para conservar copias propias
-  (pendiente; ver el plan).
+- Desde *Ajustes* se puede exportar una copia de los datos en JSON, o de los
+  datos y todas las fotografías en un ZIP, y volver a importarla. La copia se
+  guarda en su dispositivo: consérvela donde prefiera.
 
 ## Licencia
 

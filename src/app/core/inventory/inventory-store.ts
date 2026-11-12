@@ -12,6 +12,7 @@ import {
   InventoryError,
   Item,
   ItemDraft,
+  TypeChanges,
 } from './models';
 import {
   canonicalTypes,
@@ -245,6 +246,52 @@ export class InventoryStore {
     const next = new Map(this.all());
     next.delete(id);
     this.all.set(next);
+  }
+
+  /** Todas las entidades, incluidas las de la papelera (para las copias de seguridad). */
+  everything(): Entity[] {
+    return [...this.all().values()];
+  }
+
+  /** Añade un tipo de contenedor al final de la lista. */
+  async addType(draft: {
+    name: string;
+    icon: string;
+    slug?: string | null;
+  }): Promise<ContainerType> {
+    this.assertOnline();
+    const order = Math.max(0, ...this.types().map((type) => type.order)) + 10;
+    const type = await this.repository.createType({ ...draft, order });
+    this.allTypes.set([...this.allTypes(), type]);
+    return type;
+  }
+
+  async updateType(id: EntityId, changes: TypeChanges): Promise<ContainerType> {
+    this.assertOnline();
+    const updated = await this.repository.updateType(id, changes);
+    this.allTypes.set(this.allTypes().map((type) => (type.id === id ? updated : type)));
+    return updated;
+  }
+
+  /** Elimina un tipo. Los contenedores que lo usaban quedan sin tipo. */
+  async removeType(id: EntityId): Promise<void> {
+    this.assertOnline();
+    await this.repository.deleteType(id);
+    this.allTypes.set(this.allTypes().filter((type) => type.id !== id));
+  }
+
+  /** Sube (-1) o baja (+1) un tipo una posición en la lista. */
+  async moveType(id: EntityId, direction: -1 | 1): Promise<void> {
+    const ordered = [...this.types()];
+    const from = ordered.findIndex((type) => type.id === id);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= ordered.length) return;
+    [ordered[from], ordered[to]] = [ordered[to], ordered[from]];
+    // Se renumera de diez en diez y solo se guardan los que cambian.
+    for (const [index, type] of ordered.entries()) {
+      const order = (index + 1) * 10;
+      if (type.order !== order) await this.updateType(type.id, { order });
+    }
   }
 
   /**

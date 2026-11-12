@@ -210,6 +210,64 @@ describe('InventoryStore', () => {
     expect(store.counts()).toEqual({ containers: 6, items: 0 });
   });
 
+  describe('tipos de contenedor', () => {
+    const names = (store: InventoryStore) => store.types().map((t) => t.name);
+
+    it('añade un tipo al final, lo edita y lo elimina', async () => {
+      const { store } = setup();
+      await store.load();
+
+      const type = await store.addType({ name: 'Estantería', icon: 'shelves' });
+      expect(names(store)).toEqual(['Casa', 'Habitación', 'Armario', 'Caja', 'Estantería']);
+      expect(type.order).toBe(50);
+
+      await store.updateType(type.id, { name: 'Balda', icon: 'desk' });
+      expect(store.types().at(-1)).toMatchObject({ name: 'Balda', icon: 'desk' });
+
+      await store.removeType(type.id);
+      expect(names(store)).toEqual(['Casa', 'Habitación', 'Armario', 'Caja']);
+    });
+
+    it('reordena guardando solo los tipos que cambian de posición', async () => {
+      const { store, repository } = setup();
+      await store.load();
+      const update = vi.spyOn(repository, 'updateType');
+      const caja = store.types()[3];
+
+      await store.moveType(caja.id, -1);
+      expect(names(store)).toEqual(['Casa', 'Habitación', 'Caja', 'Armario']);
+      expect(update).toHaveBeenCalledTimes(2);
+
+      await store.moveType(store.types()[0].id, -1); // ya es el primero
+      await store.moveType(store.types()[3].id, 1); // ya es el último
+      expect(update).toHaveBeenCalledTimes(2);
+
+      // El orden se conserva al volver a cargar.
+      await store.load();
+      expect(names(store)).toEqual(['Casa', 'Habitación', 'Caja', 'Armario']);
+    });
+
+    it('los contenedores de un tipo eliminado quedan sin tipo', async () => {
+      const { store } = setup();
+      await store.load();
+      const type = await store.addType({ name: 'Estantería', icon: 'shelves' });
+      const mueble = await store.addContainer({ name: 'Mueble', typeId: type.id });
+
+      await store.removeType(type.id);
+
+      expect(store.typeOf(store.get(mueble.id) as Container)).toBeUndefined();
+      expect(store.get(mueble.id)).toBeDefined();
+    });
+
+    it('recibe los cambios de tipos hechos en otro dispositivo', async () => {
+      const { store, repository } = setup();
+      await store.load();
+      await repository.createType({ name: 'Remoto', icon: 'category', order: 5 });
+      await store.refresh();
+      expect(names(store)[0]).toBe('Remoto');
+    });
+  });
+
   describe('sincronización con otros dispositivos', () => {
     it('trae lo que otro dispositivo crea, mueve y elimina', async () => {
       const { store, repository } = setup();

@@ -461,25 +461,41 @@ como `/c/abc`.
 | **6. Sincronización** | `SyncService`, aviso de edición obsoleta, estado sin conexión | Un cambio en un dispositivo aparece en el otro en < 30 s |
 | **7. Búsqueda** | Búsqueda global con ruta en resultados | Encontrar un objeto y ver dónde está en dos toques |
 | **8. Fotografías** | Captura, redimensionado, subida, caché | Foto visible en un segundo dispositivo; sin nueva descarga al reabrir |
-| **9. Ajustes** | Tipos configurables; exportación de datos en JSON y de imágenes en ZIP; importación (§7.1) | Añadir tipo «Estantería»; copia de seguridad restaurable, fotos incluidas |
+| **9. Ajustes** | Tipos configurables (añadir, editar, reordenar, eliminar); exportación de datos en JSON y de datos e imágenes en ZIP; importación (§7.1) | Añadir tipo «Estantería»; copia de seguridad restaurable, fotos incluidas |
 | **10. Pulido** | Accesibilidad, Lighthouse, iconos, aviso de actualización | Lighthouse PWA/Accesibilidad ≥ 90 |
 
-### 7.1 Exportación (pendiente de implementar)
+### 7.1 Copias de seguridad
 
-Hay que implementar en Ajustes un sistema de exportación con dos partes:
+En Ajustes hay dos exportaciones y una importación:
 
-- **Datos en JSON**: un único archivo con los tipos de contenedor y todas las
-  entidades (contenedores y objetos, incluida la papelera), con sus campos
-  del modelo de dominio, la jerarquía (`parentId`), la referencia a su foto y
-  una versión de formato para poder importarlo después.
-- **Imágenes en ZIP**: un archivo ZIP con todas las fotografías, nombradas de
-  forma que el JSON permita asociar cada una a su entidad (por ejemplo, por
-  el id de la foto).
+- **Datos en JSON** (`inventario-AAAA-MM-DD.json`): los tipos de contenedor y
+  todas las entidades (contenedores y objetos, incluida la papelera), con sus
+  campos del modelo de dominio, la jerarquía (`parentId`) y el id de su foto
+  (`photoId`). Lleva `format: "inventario-hogar"` y `version: 1`.
+- **Datos e imágenes en ZIP** (`inventario-AAAA-MM-DD.zip`): ese mismo JSON
+  como `inventario.json` y cada fotografía como `fotos/<photoId>.jpg`, de modo
+  que el JSON permite asociar cada imagen a su entidad. Es la copia completa
+  en un solo archivo.
+- **Importación** de un `.json` o un `.zip`: **añade** al inventario actual
+  lo que contiene la copia, sin borrar ni modificar nada. Crea entidades
+  nuevas (con ids nuevos) respetando la jerarquía; reutiliza los tipos que ya
+  existan con el mismo nombre y crea los que falten; sube las fotos del ZIP.
+  La papelera de la copia no se restaura. Antes de empezar muestra cuántos
+  elementos se añadirán y pide confirmación.
 
-A decidir al implementarlo: si el ZIP incluye también el JSON para tener la
-copia completa en un solo archivo; cómo generar el ZIP en el navegador
-(biblioteca o escritura propia sin compresión, ya que los JPEG no comprimen);
-y cómo descargar muchas fotos sin superar los límites por minuto de la API.
+Decisiones tomadas:
+
+- El ZIP se escribe con código propio (`core/backup/zip.ts`), sin biblioteca
+  y sin compresión, porque los JPEG ya están comprimidos. La lectura admite
+  también ZIP comprimidos con *deflate* (`DecompressionStream`), por si la
+  copia se ha vuelto a empaquetar. Sin ZIP64: hasta 65 535 archivos y 4 GB.
+- Las fotos se descargan una a una, lo que queda muy por debajo de los
+  límites por minuto de la API; las ya vistas salen de la caché del
+  dispositivo. Todas pasan por memoria a la vez: con miles de fotos haría
+  falta escritura en flujo.
+- Si una foto no se puede obtener, la exportación falla en lugar de dar por
+  buena una copia incompleta. En la importación, una foto que no se pueda
+  subir no detiene el resto y se informa al terminar.
 
 Posibles ampliaciones: etiquetas QR para contenedores, lector de QR, inventario
 compartido entre cuentas (`drive.file`), historial de movimientos.

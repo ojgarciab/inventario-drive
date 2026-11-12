@@ -33,6 +33,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/search/search').then((m) => m.Search),
       },
       {
+        path: 'ajustes',
+        loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
+      },
+      {
         path: 'papelera',
         loadComponent: () => import('./features/trash/trash').then((m) => m.Trash),
       },

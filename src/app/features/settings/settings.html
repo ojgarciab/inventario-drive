@@ -1,0 +1,111 @@
+<nav class="back"><a routerLink="/">‹ Inicio</a></nav>
+<h1>Ajustes</h1>
+
+@if (task(); as t) {
+  <div class="task" role="status">
+    <mat-progress-bar [mode]="t.total > 0 ? 'determinate' : 'indeterminate'" [value]="percent()" />
+    <span>
+      {{ t.label }}
+      @if (t.total > 0) {
+        {{ t.done }} de {{ t.total }}
+      }
+    </span>
+  </div>
+}
+
+<section aria-labelledby="types-title">
+  <h2 id="types-title">Tipos de contenedor</h2>
+  <p class="hint">Sirven para clasificar los contenedores y darles un icono.</p>
+  <mat-list>
+    @for (type of types(); track type.id; let first = $first, last = $last) {
+      <mat-list-item>
+        <mat-icon matListItemIcon aria-hidden="true">{{ type.icon }}</mat-icon>
+        <span matListItemTitle>{{ type.name }}</span>
+        <span matListItemMeta class="row-actions">
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'Subir ' + type.name"
+            [disabled]="first || busy()"
+            (click)="moveType(type, -1)"
+          >
+            <mat-icon>arrow_upward</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'Bajar ' + type.name"
+            [disabled]="last || busy()"
+            (click)="moveType(type, 1)"
+          >
+            <mat-icon>arrow_downward</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'Editar ' + type.name"
+            [disabled]="busy()"
+            (click)="editType(type)"
+          >
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'Eliminar ' + type.name"
+            [disabled]="busy()"
+            (click)="removeType(type)"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
+        </span>
+      </mat-list-item>
+    }
+  </mat-list>
+  <button matButton="tonal" type="button" class="add-type" [disabled]="busy()" (click)="addType()">
+    <mat-icon>add</mat-icon>
+    Añadir tipo
+  </button>
+</section>
+
+<section aria-labelledby="backup-title">
+  <h2 id="backup-title">Copia de seguridad</h2>
+  <p class="hint">
+    El inventario tiene {{ counts().containers }} contenedores y {{ counts().items }} objetos. La
+    copia se guarda en este dispositivo; consérvela donde prefiera.
+  </p>
+  <div class="buttons">
+    <button matButton="tonal" type="button" class="json" [disabled]="busy()" (click)="exportJson()">
+      <mat-icon>data_object</mat-icon>
+      Exportar datos (JSON)
+    </button>
+    <button matButton="tonal" type="button" class="zip" [disabled]="busy()" (click)="exportZip()">
+      <mat-icon>folder_zip</mat-icon>
+      Exportar datos e imágenes (ZIP)
+    </button>
+  </div>
+  <p class="hint">
+    El JSON contiene solo los datos. El ZIP contiene esos mismos datos y además todas las
+    fotografías.
+  </p>
+</section>
+
+<section aria-labelledby="import-title">
+  <h2 id="import-title">Importar una copia</h2>
+  <p class="hint">
+    Añade al inventario el contenido de un archivo JSON o ZIP exportado desde aquí. No borra nada de
+    lo que ya hay.
+  </p>
+  <button matButton="tonal" type="button" [disabled]="busy()" (click)="file.click()">
+    <mat-icon>upload_file</mat-icon>
+    Elegir archivo…
+  </button>
+  <input
+    #file
+    hidden
+    type="file"
+    accept=".json,.zip,application/json,application/zip"
+    aria-label="Archivo de copia de seguridad"
+    (change)="importFile(file)"
+  />
+</section>
