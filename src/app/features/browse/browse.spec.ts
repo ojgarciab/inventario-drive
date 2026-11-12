@@ -36,6 +36,7 @@ describe('Browse', () => {
     expect(el.querySelector('.type')?.textContent).toBe('Habitación');
     expect(el.querySelector('.notes')?.textContent).toBe('Planta alta');
     expect(texts(el, '.tags li')).toEqual(['arriba']);
+    expect(el.querySelector('.tags a')?.getAttribute('href')).toBe('/buscar?q=arriba');
     expect(texts(el, '[matListItemTitle]')).toEqual(['Armario', 'Lámpara', 'Pilas']);
     expect(texts(el, '[matListItemLine]')).toEqual(['1 elemento', 'Cantidad: 4']);
     expect(el.querySelector('mat-nav-list a')?.getAttribute('href')).toBe(`/c/${armario.id}`);

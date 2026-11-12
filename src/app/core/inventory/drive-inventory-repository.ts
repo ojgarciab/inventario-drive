@@ -6,6 +6,7 @@ import {
   fileToEntity,
   fileToType,
   itemToFile,
+  photoToFile,
   typeChangesToPatch,
   typeToFile,
 } from './drive-mapping';
@@ -76,6 +77,18 @@ export class DriveInventoryRepository extends InventoryRepository {
 
   deleteType(id: EntityId): Promise<void> {
     return this.api.delete(id);
+  }
+
+  async uploadPhoto(entityId: EntityId, image: Blob): Promise<EntityId> {
+    return (await this.api.upload(photoToFile(entityId), image)).id;
+  }
+
+  downloadPhoto(photoId: EntityId): Promise<Blob> {
+    return this.api.download(photoId);
+  }
+
+  deletePhoto(photoId: EntityId): Promise<void> {
+    return this.api.delete(photoId);
   }
 }
 

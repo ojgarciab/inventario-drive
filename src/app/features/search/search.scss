@@ -1,0 +1,26 @@
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0 0 12px;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.hint,
+.count {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hint {
+  margin: 24px 0;
+}
+
+.count {
+  font: var(--mat-sys-body-small);
+  margin: 16px 0 0;
+}
+
+mat-nav-list {
+  margin: 0 -16px;
+}

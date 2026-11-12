@@ -100,6 +100,14 @@ export function typeToFile(draft: TypeDraft) {
   return { name: cleanName(draft.name), appProperties };
 }
 
+/** Metadatos del archivo de una fotografía; `p` es la entidad a la que pertenece. */
+export function photoToFile(entityId: string) {
+  return {
+    name: `foto-${entityId}.jpg`,
+    appProperties: { k: 'f', v: SCHEMA_VERSION, p: entityId },
+  };
+}
+
 /** Traduce cambios parciales a un PATCH: solo viajan los campos presentes. */
 export function changesToPatch(changes: EntityChanges): DriveFilePatch {
   const patch: DriveFilePatch = {};

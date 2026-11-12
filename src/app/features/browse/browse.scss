@@ -45,12 +45,14 @@ header {
   margin: 12px 0 0;
   padding: 0;
 
-  li {
+  a {
     background: var(--mat-sys-secondary-container);
     border-radius: 8px;
     color: var(--mat-sys-on-secondary-container);
+    display: block;
     font: var(--mat-sys-label-medium);
-    padding: 4px 10px;
+    padding: 6px 12px;
+    text-decoration: none;
   }
 }
 

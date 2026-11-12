@@ -20,6 +20,7 @@ import {
 export class InMemoryInventoryRepository extends InventoryRepository {
   private readonly entities = new Map<EntityId, Entity>();
   private readonly types = new Map<EntityId, ContainerType>();
+  private readonly photos = new Map<EntityId, Blob>();
   private nextId = 1;
   /** Registro de cambios: el token es la posición en esta lista. */
   private readonly log: { id: EntityId }[] = [];
@@ -127,6 +128,22 @@ export class InMemoryInventoryRepository extends InventoryRepository {
   async deleteType(id: EntityId): Promise<void> {
     this.types.delete(id);
     this.record(id);
+  }
+
+  async uploadPhoto(_entityId: EntityId, image: Blob): Promise<EntityId> {
+    const id = `mem-${this.nextId++}`;
+    this.photos.set(id, image);
+    return id;
+  }
+
+  async downloadPhoto(photoId: EntityId): Promise<Blob> {
+    const image = this.photos.get(photoId);
+    if (!image) throw new InventoryError('not_found');
+    return image;
+  }
+
+  async deletePhoto(photoId: EntityId): Promise<void> {
+    this.photos.delete(photoId);
   }
 
   /** Marca de tiempo posterior a la dada, aunque el reloj no haya avanzado. */

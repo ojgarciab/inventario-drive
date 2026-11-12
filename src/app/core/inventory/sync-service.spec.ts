@@ -15,6 +15,7 @@ describe('SyncService', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    localStorage.clear();
     auth.set('signedIn');
     online.set(true);
     ready.set('ready');
@@ -91,5 +92,52 @@ describe('SyncService', () => {
     sync.start();
     vi.advanceTimersByTime(20_000);
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  describe('preferencia del dispositivo', () => {
+    it('está activada por defecto', () => {
+      expect(sync.autoSync()).toBe(true);
+    });
+
+    it('desactivada, no consulta ni por tiempo ni al volver a primer plano', () => {
+      sync.start();
+      sync.setAutoSync(false);
+
+      vi.advanceTimersByTime(60_000);
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('online'));
+      document.dispatchEvent(new Event('visibilitychange'));
+
+      expect(sync.autoSync()).toBe(false);
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('al reactivarla consulta enseguida y retoma el intervalo', () => {
+      sync.start();
+      sync.setAutoSync(false);
+      sync.setAutoSync(true);
+      expect(refresh).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(20_000);
+      expect(refresh).toHaveBeenCalledTimes(2);
+    });
+
+    it('se guarda en este dispositivo y se recupera al volver a abrir la aplicación', () => {
+      sync.setAutoSync(false);
+      expect(localStorage.getItem('inventario.sincronizacion')).toBe('off');
+
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: AuthService, useValue: { status: auth } },
+          { provide: Connectivity, useValue: { online } },
+          { provide: InventoryStore, useValue: { status: ready, refresh } },
+        ],
+      });
+      const reopened = TestBed.inject(SyncService);
+      expect(reopened.autoSync()).toBe(false);
+
+      reopened.setAutoSync(true);
+      expect(localStorage.getItem('inventario.sincronizacion')).toBeNull();
+    });
   });
 });

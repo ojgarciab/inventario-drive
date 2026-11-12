@@ -46,9 +46,9 @@ Producción: <https://inventario.linaresdigital.com>
 El diseño detallado, la arquitectura y las fases de implementación están en
 [Plan.md](Plan.md).
 
-> **Estado**: fase 6 (sincronización entre dispositivos). Ya se pueden crear,
-> editar, mover y eliminar contenedores y objetos, y los cambios de otros
-> dispositivos aparecen solos; faltan la búsqueda y las fotografías.
+> **Estado**: fase 8 (fotografías). Ya se pueden crear, editar, mover,
+> eliminar, buscar y fotografiar contenedores y objetos, con sincronización
+> entre dispositivos; faltan los ajustes (tipos configurables y copias).
 
 ## Prueba de concepto (fase 0)
 

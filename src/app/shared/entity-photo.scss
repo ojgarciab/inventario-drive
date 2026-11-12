@@ -1,0 +1,52 @@
+:host {
+  display: block;
+  margin-top: 12px;
+}
+
+.frame {
+  background: var(--mat-sys-surface-container);
+  border: 0;
+  border-radius: 12px;
+  cursor: zoom-in;
+  display: block;
+  height: 220px;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+
+  img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+
+  // Ampliada se ve entera, sin recortar.
+  &.expanded {
+    cursor: zoom-out;
+    height: auto;
+
+    img {
+      height: auto;
+      max-height: 80vh;
+      object-fit: contain;
+    }
+  }
+}
+
+.placeholder {
+  align-items: center;
+  color: var(--mat-sys-on-surface-variant);
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px -8px 0;
+}

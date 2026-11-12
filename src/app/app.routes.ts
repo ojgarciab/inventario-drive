@@ -29,6 +29,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/move/move').then((m) => m.Move),
       },
       {
+        path: 'buscar',
+        loadComponent: () => import('./features/search/search').then((m) => m.Search),
+      },
+      {
         path: 'papelera',
         loadComponent: () => import('./features/trash/trash').then((m) => m.Trash),
       },

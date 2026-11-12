@@ -105,16 +105,25 @@ export function normalizeText(text: string): string {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-/** Devuelve las entidades cuyo nombre, notas o etiquetas contienen todas las palabras. */
+/**
+ * Devuelve las entidades cuyo nombre, notas o etiquetas contienen todas las
+ * palabras. Primero las que coinciden por el nombre, que es lo que se suele buscar.
+ */
 export function searchEntities(query: string, entities: Iterable<Entity>): Entity[] {
   const words = normalizeText(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
-  const results: Entity[] = [];
+  const byName: Entity[] = [];
+  const byRest: Entity[] = [];
   for (const entity of entities) {
-    const haystack = normalizeText(`${entity.name}\n${entity.notes}\n${entity.tags.join('\n')}`);
-    if (words.every((word) => haystack.includes(word))) results.push(entity);
+    const name = normalizeText(entity.name);
+    if (words.every((word) => name.includes(word))) {
+      byName.push(entity);
+      continue;
+    }
+    const haystack = `${name}\n${normalizeText(`${entity.notes}\n${entity.tags.join('\n')}`)}`;
+    if (words.every((word) => haystack.includes(word))) byRest.push(entity);
   }
-  return results.sort(compareEntities);
+  return [...byName.sort(compareEntities), ...byRest.sort(compareEntities)];
 }
 
 /**

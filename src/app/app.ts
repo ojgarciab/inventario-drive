@@ -9,6 +9,7 @@ import { authErrorMessage } from './core/auth/auth-messages';
 import { AuthService } from './core/auth/auth-service';
 import { InventoryStore } from './core/inventory/inventory-store';
 import { SyncService } from './core/inventory/sync-service';
+import { PhotoService } from './core/photos/photo-service';
 import { Connectivity } from './core/pwa/connectivity';
 
 @Component({
@@ -30,11 +31,13 @@ export class App {
   private readonly store = inject(InventoryStore);
   private readonly router = inject(Router);
   private readonly sync = inject(SyncService);
+  private readonly photos = inject(PhotoService);
 
   protected readonly user = this.auth.user;
   protected readonly status = this.auth.status;
   protected readonly inventory = this.store.status;
   protected readonly online = inject(Connectivity).online;
+  protected readonly autoSync = this.sync.autoSync;
   protected readonly resumeError = signal<string | null>(null);
 
   constructor() {
@@ -61,6 +64,10 @@ export class App {
     }
   }
 
+  protected toggleAutoSync(): void {
+    this.sync.setAutoSync(!this.autoSync());
+  }
+
   protected refresh(): void {
     void this.store.refresh();
   }
@@ -68,6 +75,7 @@ export class App {
   protected async signOut(): Promise<void> {
     this.auth.signOut();
     this.store.reset(); // el inventario es de la cuenta que acaba de salir
+    void this.photos.clearCache(); // y sus fotos no deben quedarse en el dispositivo
     await this.router.navigateByUrl('/login');
   }
 }

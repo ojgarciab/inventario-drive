@@ -76,9 +76,13 @@ bloque (hasta 1000 archivos por página) sin descargar nada más.
 Las claves son de una letra porque cada propiedad admite como máximo 124 bytes
 (clave + valor en UTF-8) y hay un máximo de 30 propiedades privadas por archivo.
 
-Las **fotografías** son archivos con contenido binario (imagen redimensionada
-en el cliente a ~1600 px y miniatura de ~320 px), con `appProperties.k = f` y
-`appProperties.p` = id de la entidad a la que pertenecen.
+Las **fotografías** son archivos con contenido binario: un JPEG reducido en
+el cliente a 1600 px de lado mayor (calidad 0,8, con la orientación EXIF
+aplicada), con `appProperties.k = f` y `appProperties.p` = id de la entidad a
+la que pertenece. La entidad apunta a su foto con `appProperties.f`. Cada
+entidad tiene una sola foto y los archivos son inmutables: cambiar de foto
+sube un archivo nuevo y borra el anterior. No se generan miniaturas: las
+listas no muestran fotos, solo las fichas.
 
 Los **tipos de contenedor** (`k = t`) llevan nombre, icono (`appProperties.i`)
 y orden (`appProperties.o`). En el primer arranque se crean los tipos por
@@ -114,6 +118,12 @@ Requisito: mínimo dos dispositivos a la vez, sin caché local de ubicaciones.
    - al abrir el selector de destino y los formularios de edición, y antes
      de guardar una edición;
    - a petición, con «Actualizar ahora» en el menú de cuenta.
+
+   El sondeo automático (por tiempo y al volver a primer plano o recuperar la
+   conexión) se puede desactivar desde el menú de cuenta. Es una preferencia
+   **local de cada dispositivo** (`localStorage`), no se guarda en Drive ni
+   se propaga. Desactivado, los cambios ajenos solo llegan a petición o al
+   abrir un formulario de edición o de traslado.
 3. **Escrituras**: siempre `PATCH` parcial sobre un archivo. Dos dispositivos
    que editen entidades distintas no interfieren nunca. Si editan la misma
    entidad, gana la última escritura **por campo** (Drive fusiona
@@ -313,10 +323,14 @@ ngsw-config.json
   duplicados si dos dispositivos los crean a la vez.
 - **`SyncService`**: carga inicial, sondeo de cambios (§3) y aplicación de los
   cambios al almacén.
-- **`PhotoService`**: captura (`<input type="file" accept="image/*"
-  capture="environment">`), redimensionado en `canvas`, subida y descarga con
-  token; guarda los binarios en Cache Storage indexados por id de archivo
-  (inmutables: una foto nueva es un archivo nuevo).
+- **`PhotoService`**: reduce la imagen en `canvas`, la sube
+  (`uploadType=multipart`) y la asocia a la entidad; si la asociación falla,
+  borra el archivo recién subido. Sirve las fotos como direcciones `blob:` y
+  las guarda en Cache Storage (`inventario-fotos`) indexadas por id de
+  archivo, sin caducidad porque son inmutables. La caché se vacía al cerrar
+  sesión. Al eliminar definitivamente una entidad se borra también su foto.
+  La captura usa dos `<input type="file" accept="image/*">`: uno con
+  `capture="environment"` (cámara) y otro sin él (galería).
 - **`UpdateService`**: avisa de nueva versión de la aplicación (`SwUpdate`).
 
 ### 5.4 Modelo de dominio
@@ -476,6 +490,7 @@ compartido entre cuentas (`drive.file`), historial de movimientos.
 | `files.generateIds` admite `space=appDataFolder` | Crear primero y usar el id devuelto |
 | La renovación silenciosa del token puede requerir gesto del usuario (sobre todo en iOS) | Ya previsto: botón «Reanudar sesión» |
 | Los datos de `appDataFolder` están ligados al proyecto de Google Cloud: si se elimina el proyecto, o el usuario borra los datos ocultos de la aplicación desde la configuración de Drive, se pierden | Exportación a JSON desde Ajustes; no eliminar ni sustituir el proyecto de Cloud |
+| Dos dispositivos cambian a la vez la foto de la misma entidad: el archivo del que pierde queda sin referencia | Solo ocupa espacio; se puede añadir una limpieza de fotos huérfanas |
 | Cuotas y futura facturación del exceso de la API de Drive (§3.1) | Consumo muy inferior al umbral gratuito; proyecto sin cuenta de facturación; reintentos con espera exponencial; el intervalo de sondeo es configurable |
 
 La fase 0 se ejecuta con la página `poc/index.html` (instrucciones en el

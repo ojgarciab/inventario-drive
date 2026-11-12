@@ -1,0 +1,42 @@
+<h1>Buscar</h1>
+
+<mat-form-field appearance="outline" subscriptSizing="dynamic">
+  <mat-label>Nombre, notas o etiquetas</mat-label>
+  <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+  <input
+    #field
+    matInput
+    type="search"
+    autocomplete="off"
+    enterkeyhint="search"
+    [value]="query()"
+    (input)="search(field.value)"
+  />
+  @if (query()) {
+    <button matSuffix matIconButton type="button" aria-label="Borrar la búsqueda" (click)="clear()">
+      <mat-icon>close</mat-icon>
+    </button>
+  }
+</mat-form-field>
+
+@if (!query().trim()) {
+  <p class="hint">Escriba para buscar en todo el inventario. No importan mayúsculas ni acentos.</p>
+} @else if (total() === 0) {
+  <p class="hint" role="status">No hay resultados para «{{ query().trim() }}».</p>
+} @else {
+  <p class="count" role="status">
+    {{ total() === 1 ? '1 resultado' : total() + ' resultados' }}
+    @if (truncated()) {
+      (se muestran los {{ rows().length }} primeros; afine la búsqueda)
+    }
+  </p>
+  <mat-nav-list>
+    @for (row of rows(); track row.entity.id) {
+      <a mat-list-item [routerLink]="link(row.entity)">
+        <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
+        <span matListItemTitle>{{ row.entity.name }}</span>
+        <span matListItemLine>{{ row.place }}</span>
+      </a>
+    }
+  </mat-nav-list>
+}

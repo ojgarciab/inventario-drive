@@ -238,7 +238,10 @@ export class InventoryStore {
   /** Elimina definitivamente una entidad de la papelera. */
   async purge(id: EntityId): Promise<void> {
     this.assertOnline();
+    const photoId = this.all().get(id)?.photoId;
     await this.repository.purgeEntity(id);
+    // La foto queda huérfana sin su entidad; si el borrado falla solo ocupa espacio.
+    if (photoId) await this.repository.deletePhoto(photoId).catch(() => undefined);
     const next = new Map(this.all());
     next.delete(id);
     this.all.set(next);

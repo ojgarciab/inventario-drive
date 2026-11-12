@@ -1,0 +1,61 @@
+@switch (state()) {
+  @case ('ready') {
+    <button
+      type="button"
+      class="frame"
+      [class.expanded]="expanded()"
+      [attr.aria-label]="expanded() ? 'Reducir la foto' : 'Ampliar la foto'"
+      (click)="expanded.set(!expanded())"
+    >
+      <img [src]="url()" [alt]="'Foto de ' + entity().name" />
+    </button>
+  }
+  @case ('loading') {
+    <div class="frame placeholder" role="status">Cargando la foto…</div>
+  }
+  @case ('error') {
+    <div class="frame placeholder" role="alert">
+      <span>No se ha podido cargar la foto.</span>
+      <button matButton type="button" (click)="retry()">Reintentar</button>
+    </div>
+  }
+}
+
+@if (busy()) {
+  <mat-progress-bar mode="indeterminate" aria-label="Guardando la foto" />
+}
+
+<div class="actions">
+  <button matButton type="button" [disabled]="busy()" (click)="camera.click()">
+    <mat-icon>photo_camera</mat-icon>
+    {{ photoId() ? 'Cambiar foto' : 'Hacer foto' }}
+  </button>
+  <button matButton type="button" [disabled]="busy()" (click)="gallery.click()">
+    <mat-icon>image</mat-icon>
+    Galería
+  </button>
+  @if (photoId()) {
+    <button matButton type="button" class="remove" [disabled]="busy()" (click)="remove()">
+      <mat-icon>hide_image</mat-icon>
+      Quitar
+    </button>
+  }
+</div>
+
+<input
+  #camera
+  hidden
+  type="file"
+  accept="image/*"
+  capture="environment"
+  aria-label="Hacer una foto"
+  (change)="pick(camera)"
+/>
+<input
+  #gallery
+  hidden
+  type="file"
+  accept="image/*"
+  aria-label="Elegir una foto de la galería"
+  (change)="pick(gallery)"
+/>

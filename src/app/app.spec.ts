@@ -95,4 +95,28 @@ describe('App', () => {
     expect(el.querySelector('.offline')?.textContent).toContain('Sin conexión');
     online.set(true);
   });
+
+  it('permite desactivar la sincronización automática desde el menú de cuenta', async () => {
+    localStorage.clear();
+    status.set('signedIn');
+    user.set(casa);
+    const { el, settle } = await render();
+    const item = () =>
+      [...document.querySelectorAll<HTMLElement>('[role="menuitemcheckbox"]')].find((b) =>
+        b.textContent?.includes('Sincronización automática'),
+      );
+
+    el.querySelector<HTMLButtonElement>('[aria-label="Cuenta"]')?.click();
+    await settle();
+    expect(item()?.getAttribute('aria-checked')).toBe('true');
+
+    item()?.click();
+    await settle();
+    expect(localStorage.getItem('inventario.sincronizacion')).toBe('off');
+
+    el.querySelector<HTMLButtonElement>('[aria-label="Cuenta"]')?.click();
+    await settle();
+    expect(item()?.getAttribute('aria-checked')).toBe('false');
+    localStorage.clear();
+  });
 });

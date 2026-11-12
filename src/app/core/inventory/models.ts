@@ -104,7 +104,8 @@ export type InventoryErrorCode =
   | 'invalid_parent'
   | 'cycle'
   | 'not_empty'
-  | 'offline';
+  | 'offline'
+  | 'invalid_image';
 
 export class InventoryError extends Error {
   constructor(readonly code: InventoryErrorCode) {

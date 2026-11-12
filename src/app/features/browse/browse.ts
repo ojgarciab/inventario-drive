@@ -8,6 +8,7 @@ import { InventoryStore } from '../../core/inventory/inventory-store';
 import { Container, Entity } from '../../core/inventory/models';
 import { Breadcrumb } from '../../shared/breadcrumb';
 import { EntityActions } from '../../shared/entity-actions';
+import { EntityPhoto } from '../../shared/entity-photo';
 import { entityLink } from '../../shared/entity-links';
 
 interface Row {
@@ -21,6 +22,7 @@ interface Row {
   imports: [
     Breadcrumb,
     EntityActions,
+    EntityPhoto,
     MatButtonModule,
     MatIconModule,
     MatListModule,

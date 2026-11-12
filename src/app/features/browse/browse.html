@@ -15,13 +15,16 @@
       </div>
       <app-entity-actions [entity]="c" />
     </header>
+    <app-entity-photo [entity]="c" />
     @if (c.notes) {
       <p class="notes">{{ c.notes }}</p>
     }
     @if (c.tags.length > 0) {
       <ul class="tags" aria-label="Etiquetas">
         @for (tag of c.tags; track tag) {
-          <li>{{ tag }}</li>
+          <li>
+            <a routerLink="/buscar" [queryParams]="{ q: tag }">{{ tag }}</a>
+          </li>
         }
       </ul>
     }

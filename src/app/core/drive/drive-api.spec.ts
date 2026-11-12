@@ -65,6 +65,42 @@ describe('DriveApi', () => {
     await deleted;
   });
 
+  it('sube una fotografía con sus metadatos en una sola petición', async () => {
+    const image = new Blob(['IMAGEN'], { type: 'image/jpeg' });
+    const result = api.upload({ name: 'foto.jpg', appProperties: { k: 'f', p: 'e1' } }, image);
+    const req = backend.expectOne(
+      (r) => r.url === 'https://www.googleapis.com/upload/drive/v3/files' && r.method === 'POST',
+    );
+    expect(req.request.params.get('uploadType')).toBe('multipart');
+    const contentType = req.request.headers.get('Content-Type') ?? '';
+    const boundary = contentType.split('boundary=')[1];
+    expect(contentType).toMatch(/^multipart\/related; boundary=inventario-/);
+
+    const body = await (req.request.body as Blob).text();
+    const parts = body.split(`--${boundary}`);
+    expect(parts.length).toBe(4); // preámbulo vacío, metadatos, imagen y cierre
+    expect(parts[1]).toContain('Content-Type: application/json');
+    expect(JSON.parse(parts[1].split('\r\n\r\n')[1])).toEqual({
+      name: 'foto.jpg',
+      appProperties: { k: 'f', p: 'e1' },
+      parents: ['appDataFolder'],
+    });
+    expect(parts[2]).toContain('Content-Type: image/jpeg\r\n\r\nIMAGEN');
+    expect(parts[3]).toBe('--');
+
+    req.flush(file('foto'));
+    expect((await result).id).toBe('foto');
+  });
+
+  it('descarga el contenido de un archivo', async () => {
+    const result = api.download('foto 1');
+    const req = backend.expectOne((r) => r.url === `${FILES}/foto%201`);
+    expect(req.request.params.get('alt')).toBe('media');
+    expect(req.request.responseType).toBe('blob');
+    req.flush(new Blob(['IMAGEN']));
+    expect(await (await result).text()).toBe('IMAGEN');
+  });
+
   it('reúne los cambios de todas las páginas y devuelve el token siguiente', async () => {
     const result = api.listChanges('t0');
     const first = backend.expectOne((r) => r.url === CHANGES);

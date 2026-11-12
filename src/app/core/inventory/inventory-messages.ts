@@ -10,6 +10,7 @@ const MESSAGES: Record<InventoryErrorCode, string> = {
   invalid_parent: 'El contenedor de destino ya no existe.',
   cycle: 'Un contenedor no puede estar dentro de sí mismo.',
   not_empty: 'El contenedor no está vacío.',
+  invalid_image: 'Ese archivo no es una imagen que se pueda usar.',
   offline: 'No hay conexión. Los cambios no se pueden guardar hasta recuperarla.',
 };
 

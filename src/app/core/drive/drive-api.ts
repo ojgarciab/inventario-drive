@@ -3,6 +3,7 @@ import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable, firstValueFrom, retry, throwError, timer } from 'rxjs';
 
 const API = 'https://www.googleapis.com/drive/v3';
+const UPLOAD_API = 'https://www.googleapis.com/upload/drive/v3';
 const SPACE = 'appDataFolder';
 const FILE_FIELDS = 'id,name,description,appProperties,createdTime,modifiedTime';
 const MAX_RETRIES = 4;
@@ -92,6 +93,37 @@ export class DriveApi {
         { ...metadata, parents: [SPACE] },
         { params: { fields: FILE_FIELDS } },
       ),
+    );
+  }
+
+  /** Crea un archivo con contenido (una fotografía) en una sola petición. */
+  upload(
+    metadata: { name: string; appProperties: Record<string, string> },
+    content: Blob,
+  ): Promise<DriveFile> {
+    const boundary = `inventario-${crypto.randomUUID()}`;
+    const body = new Blob([
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+      JSON.stringify({ ...metadata, parents: [SPACE] }),
+      `\r\n--${boundary}\r\nContent-Type: ${content.type || 'application/octet-stream'}\r\n\r\n`,
+      content,
+      `\r\n--${boundary}--`,
+    ]);
+    return this.send(
+      this.http.post<DriveFile>(`${UPLOAD_API}/files`, body, {
+        params: { uploadType: 'multipart', fields: FILE_FIELDS },
+        headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+      }),
+    );
+  }
+
+  /** Descarga el contenido de un archivo. */
+  download(id: string): Promise<Blob> {
+    return this.send(
+      this.http.get(`${API}/files/${encodeURIComponent(id)}`, {
+        params: { alt: 'media' },
+        responseType: 'blob',
+      }),
     );
   }
 

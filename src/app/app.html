@@ -1,6 +1,9 @@
 <mat-toolbar>
   <a class="title" routerLink="/">Inventario del hogar</a>
   @if (user(); as u) {
+    <a matIconButton aria-label="Buscar" routerLink="/buscar">
+      <mat-icon>search</mat-icon>
+    </a>
     <button matIconButton type="button" aria-label="Cuenta" [matMenuTriggerFor]="accountMenu">
       <mat-icon>account_circle</mat-icon>
     </button>
@@ -9,6 +12,16 @@
         <strong>{{ u.name }}</strong>
         <span>{{ u.email }}</span>
       </div>
+      <button
+        mat-menu-item
+        type="button"
+        role="menuitemcheckbox"
+        [attr.aria-checked]="autoSync()"
+        (click)="toggleAutoSync()"
+      >
+        <mat-icon>{{ autoSync() ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+        <span>Sincronización automática</span>
+      </button>
       <button mat-menu-item type="button" (click)="refresh()">
         <mat-icon>sync</mat-icon>
         <span>Actualizar ahora</span>

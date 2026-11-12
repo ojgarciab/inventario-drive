@@ -5,10 +5,11 @@ import { RouterLink } from '@angular/router';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { Breadcrumb } from '../../shared/breadcrumb';
 import { EntityActions } from '../../shared/entity-actions';
+import { EntityPhoto } from '../../shared/entity-photo';
 
 /** Ficha de un objeto. */
 @Component({
-  imports: [Breadcrumb, EntityActions, MatButtonModule, MatIconModule, RouterLink],
+  imports: [Breadcrumb, EntityActions, EntityPhoto, MatButtonModule, MatIconModule, RouterLink],
   selector: 'app-item-detail',
   styleUrl: '../browse/browse.scss',
   template: `
@@ -22,13 +23,16 @@ import { EntityActions } from '../../shared/entity-actions';
         </div>
         <app-entity-actions [entity]="i" />
       </header>
+      <app-entity-photo [entity]="i" />
       @if (i.notes) {
         <p class="notes">{{ i.notes }}</p>
       }
       @if (i.tags.length > 0) {
         <ul class="tags" aria-label="Etiquetas">
           @for (tag of i.tags; track tag) {
-            <li>{{ tag }}</li>
+            <li>
+              <a routerLink="/buscar" [queryParams]="{ q: tag }">{{ tag }}</a>
+            </li>
           }
         </ul>
       }
