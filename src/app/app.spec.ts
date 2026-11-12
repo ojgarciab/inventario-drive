@@ -112,6 +112,34 @@ describe('App', () => {
     expect(signIn).not.toHaveBeenCalled();
   });
 
+  it('permite forzar el tema desde la cabecera, también sin sesión', async () => {
+    localStorage.clear();
+    status.set('signedOut');
+    user.set(null);
+    const { el, settle } = await render();
+    const button = el.querySelector<HTMLButtonElement>('button.theme');
+    expect(button?.getAttribute('aria-label')).toBe('Tema: automático');
+
+    button?.click();
+    await settle();
+    const options = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    expect(options.map((o) => o.querySelector('span')?.textContent?.trim())).toEqual([
+      'Automático',
+      'Claro',
+      'Oscuro',
+    ]);
+    expect(options.map((o) => o.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
+
+    options[1].click();
+    await settle();
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(localStorage.getItem('inventario.tema')).toBe('light');
+    expect(button?.getAttribute('aria-label')).toBe('Tema: claro');
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.clear();
+  });
+
   it('avisa cuando no hay conexión', async () => {
     status.set('signedIn');
     user.set(casa);

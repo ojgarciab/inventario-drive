@@ -1,6 +1,7 @@
 import {
   Component,
   DOCUMENT,
+  computed,
   ElementRef,
   effect,
   inject,
@@ -19,10 +20,17 @@ import { filter } from 'rxjs';
 import { authErrorMessage } from './core/auth/auth-messages';
 import { AuthService } from './core/auth/auth-service';
 import { InventoryStore } from './core/inventory/inventory-store';
+import { ThemePreference, ThemeService } from './core/theme/theme-service';
 import { SyncService } from './core/inventory/sync-service';
 import { PhotoService } from './core/photos/photo-service';
 import { Connectivity } from './core/pwa/connectivity';
 import { UpdateService } from './core/pwa/update-service';
+
+const THEMES: readonly { value: ThemePreference; label: string; icon: string }[] = [
+  { value: 'auto', label: 'Automático', icon: 'brightness_auto' },
+  { value: 'light', label: 'Claro', icon: 'light_mode' },
+  { value: 'dark', label: 'Oscuro', icon: 'dark_mode' },
+];
 
 @Component({
   imports: [
@@ -52,6 +60,14 @@ export class App {
   protected readonly online = inject(Connectivity).online;
   protected readonly autoSync = this.sync.autoSync;
   protected readonly resumeError = signal<string | null>(null);
+  private readonly themeService = inject(ThemeService);
+  protected readonly themes = THEMES;
+  protected readonly theme = this.themeService.preference;
+  private readonly themeOption = computed(
+    () => THEMES.find((option) => option.value === this.theme()) ?? THEMES[0],
+  );
+  protected readonly themeIcon = computed(() => this.themeOption().icon);
+  protected readonly themeLabel = computed(() => this.themeOption().label.toLowerCase());
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
   /** Ruta de la pantalla actual, sin parámetros de consulta. */
   private currentPath: string | null = null;
@@ -109,6 +125,10 @@ export class App {
     } catch (error) {
       this.resumeError.set(authErrorMessage(error));
     }
+  }
+
+  protected setTheme(preference: ThemePreference): void {
+    this.themeService.set(preference);
   }
 
   protected toggleAutoSync(): void {
