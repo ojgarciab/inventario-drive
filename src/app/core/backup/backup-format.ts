@@ -14,8 +14,11 @@ export interface Backup {
   exportedAt: string;
   types: ContainerType[];
   /** Todas las entidades, incluidas las de la papelera. */
-  entities: Entity[];
+  entities: BackupEntity[];
 }
+
+/** Entidad de una copia: lleva además su galería; `photoId` es la foto destacada. */
+export type BackupEntity = Entity & { photoIds: string[] };
 
 export class BackupError extends Error {
   constructor(message: string) {
@@ -24,7 +27,11 @@ export class BackupError extends Error {
   }
 }
 
-export function toBackup(types: ContainerType[], entities: Entity[], now = new Date()): Backup {
+export function toBackup(
+  types: ContainerType[],
+  entities: BackupEntity[],
+  now = new Date(),
+): Backup {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -75,16 +82,23 @@ function readType(raw: unknown): ContainerType {
   };
 }
 
-function readEntity(raw: unknown): Entity {
+function readEntity(raw: unknown): BackupEntity {
   if (!isRecord(raw) || !text_(raw['id']) || !text_(raw['name'])) {
     throw new BackupError('La copia contiene un elemento no válido.');
   }
+  const photoId = text_(raw['photoId']) || null;
+  // Las copias anteriores a las galerías solo traen la foto destacada.
+  const photoIds = Array.isArray(raw['photoIds'])
+    ? raw['photoIds'].filter((id): id is string => typeof id === 'string' && id !== '')
+    : [];
+  if (photoId && !photoIds.includes(photoId)) photoIds.unshift(photoId);
   const base = {
     id: text_(raw['id']),
     name: text_(raw['name']),
     notes: text_(raw['notes']),
     parentId: text_(raw['parentId']) || null,
-    photoId: text_(raw['photoId']) || null,
+    photoId,
+    photoIds,
     tags: Array.isArray(raw['tags']) ? raw['tags'].filter((tag) => typeof tag === 'string') : [],
     createdAt: text_(raw['createdAt']),
     modifiedAt: text_(raw['modifiedAt']),

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { InventoryRepository } from '../inventory/inventory-repository';
 import { InventoryStore } from '../inventory/inventory-store';
-import { EntityId, InventoryError } from '../inventory/models';
+import { EntityId, InventoryError, Photo } from '../inventory/models';
 import { Connectivity } from '../pwa/connectivity';
 import { IMAGE_RESIZER } from './image-resizer';
 
@@ -9,8 +9,9 @@ const CACHE_NAME = 'inventario-fotos';
 const cacheKey = (photoId: EntityId) => `/__fotos__/${encodeURIComponent(photoId)}`;
 
 /**
- * Fotografías de contenedores y objetos. Cada foto es un archivo de Drive
- * inmutable (cambiar de foto crea otro archivo), así que se guarda en la
+ * Fotografías de contenedores y objetos: cada uno tiene una galería y una de
+ * sus fotos es la destacada. Cada foto es un archivo de Drive inmutable, así
+ * que se guarda en la
  * caché del dispositivo sin caducidad: una foto ya vista no se vuelve a
  * descargar. Es lo único del inventario que se conserva en local.
  */
@@ -41,8 +42,8 @@ export class PhotoService {
     return this.load(photoId);
   }
 
-  /** Pone una foto a la entidad, sustituyendo la que tuviera. */
-  async attach(entityId: EntityId, image: Blob): Promise<void> {
+  /** Añade una foto a la galería de la entidad. La primera queda como destacada. */
+  async attach(entityId: EntityId, image: Blob): Promise<Photo> {
     if (!this.store.get(entityId)) throw new InventoryError('not_found');
     this.assertOnline();
     let resized: Blob;
@@ -51,31 +52,51 @@ export class PhotoService {
     } catch {
       throw new InventoryError('invalid_image');
     }
-    await this.attachStored(entityId, resized);
+    return this.attachStored(entityId, resized);
   }
 
-  /** Pone una foto ya reducida (por ejemplo, de una copia de seguridad) tal cual. */
-  async attachStored(entityId: EntityId, image: Blob): Promise<void> {
-    const entity = this.store.get(entityId);
-    if (!entity) throw new InventoryError('not_found');
+  /**
+   * Añade una foto ya reducida (por ejemplo, de una copia de seguridad) tal
+   * cual. Queda como destacada si se pide o si la entidad no tenía ninguna.
+   */
+  async attachStored(entityId: EntityId, image: Blob, featured = false): Promise<Photo> {
+    if (!this.store.get(entityId)) throw new InventoryError('not_found');
     this.assertOnline();
-    const photoId = await this.repository.uploadPhoto(entityId, image);
-    try {
-      await this.store.update(entityId, { photoId });
-    } catch (error) {
-      // La entidad no llegó a apuntar a la foto: no se deja el archivo suelto.
-      await this.repository.deletePhoto(photoId).catch(() => undefined);
-      throw error;
+    const photo = await this.repository.uploadPhoto(entityId, image);
+    if (featured || this.store.featuredPhotoId(entityId) === null) {
+      try {
+        await this.store.update(entityId, { photoId: photo.id });
+      } catch (error) {
+        // La entidad no llegó a apuntar a la foto: no se deja el archivo suelto.
+        await this.repository.deletePhoto(photo.id).catch(() => undefined);
+        throw error;
+      }
     }
-    await this.remember(photoId, image);
-    if (entity.photoId) await this.discard(entity.photoId);
+    this.store.photoAdded(photo);
+    await this.remember(photo.id, image);
+    return photo;
   }
 
-  /** Quita la foto de la entidad y la borra. */
-  async detach(entityId: EntityId): Promise<void> {
-    const photoId = this.store.get(entityId)?.photoId;
-    if (!photoId) return;
-    await this.store.update(entityId, { photoId: null });
+  /** Elige cuál de las fotos de la galería es la destacada. */
+  async feature(entityId: EntityId, photoId: EntityId): Promise<void> {
+    if (!this.store.photosOf(entityId).some((photo) => photo.id === photoId)) {
+      throw new InventoryError('not_found');
+    }
+    await this.store.update(entityId, { photoId });
+  }
+
+  /** Borra una foto de la galería. Si era la destacada, pasa a serlo la siguiente. */
+  async remove(entityId: EntityId, photoId: EntityId): Promise<void> {
+    const gallery = this.store.photosOf(entityId);
+    if (!gallery.some((photo) => photo.id === photoId)) return;
+    const entity = this.store.get(entityId);
+    if (entity && (entity.photoId === photoId || !entity.photoId)) {
+      const next = gallery.find((photo) => photo.id !== photoId)?.id ?? null;
+      if (next !== entity.photoId) await this.store.update(entityId, { photoId: next });
+    } else {
+      this.assertOnline();
+    }
+    this.store.photoRemoved(photoId);
     await this.discard(photoId);
   }
 

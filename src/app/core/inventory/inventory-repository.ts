@@ -9,6 +9,7 @@ import {
   InventorySnapshot,
   Item,
   ItemDraft,
+  Photo,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -30,8 +31,8 @@ export abstract class InventoryRepository {
   abstract createType(draft: TypeDraft): Promise<ContainerType>;
   abstract updateType(id: EntityId, changes: TypeChanges): Promise<ContainerType>;
   abstract deleteType(id: EntityId): Promise<void>;
-  /** Guarda una fotografía de la entidad y devuelve su id. */
-  abstract uploadPhoto(entityId: EntityId, image: Blob): Promise<EntityId>;
+  /** Guarda una fotografía más en la galería de la entidad. */
+  abstract uploadPhoto(entityId: EntityId, image: Blob): Promise<Photo>;
   abstract downloadPhoto(photoId: EntityId): Promise<Blob>;
   abstract deletePhoto(photoId: EntityId): Promise<void>;
 }

@@ -12,6 +12,7 @@ import {
   InventorySnapshot,
   Item,
   ItemDraft,
+  Photo,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -20,7 +21,7 @@ import {
 export class InMemoryInventoryRepository extends InventoryRepository {
   private readonly entities = new Map<EntityId, Entity>();
   private readonly types = new Map<EntityId, ContainerType>();
-  private readonly photos = new Map<EntityId, Blob>();
+  private readonly photos = new Map<EntityId, { photo: Photo; image: Blob }>();
   private nextId = 1;
   /** Registro de cambios: el token es la posición en esta lista. */
   private readonly log: { id: EntityId }[] = [];
@@ -35,6 +36,7 @@ export class InMemoryInventoryRepository extends InventoryRepository {
     return {
       types: [...this.types.values()],
       entities: [...this.entities.values()],
+      photos: [...this.photos.values()].map(({ photo }) => photo),
       changeToken: String(this.log.length),
     };
   }
@@ -43,6 +45,7 @@ export class InMemoryInventoryRepository extends InventoryRepository {
     const changes: InventoryChanges = {
       types: [],
       entities: [],
+      photos: [],
       removedIds: [],
       nextToken: String(this.log.length),
     };
@@ -53,8 +56,10 @@ export class InMemoryInventoryRepository extends InventoryRepository {
       seen.add(id);
       const entity = this.entities.get(id);
       const type = this.types.get(id);
+      const photo = this.photos.get(id)?.photo;
       if (entity) changes.entities.push(entity);
       else if (type) changes.types.push(type);
+      else if (photo) changes.photos.push(photo);
       else changes.removedIds.push(id);
     }
     return changes;
@@ -130,20 +135,25 @@ export class InMemoryInventoryRepository extends InventoryRepository {
     this.record(id);
   }
 
-  async uploadPhoto(_entityId: EntityId, image: Blob): Promise<EntityId> {
-    const id = `mem-${this.nextId++}`;
-    this.photos.set(id, image);
-    return id;
+  async uploadPhoto(entityId: EntityId, image: Blob): Promise<Photo> {
+    const photo: Photo = {
+      id: `mem-${this.nextId++}`,
+      entityId,
+      createdAt: new Date().toISOString(),
+    };
+    this.photos.set(photo.id, { photo, image });
+    this.record(photo.id);
+    return photo;
   }
 
   async downloadPhoto(photoId: EntityId): Promise<Blob> {
-    const image = this.photos.get(photoId);
+    const image = this.photos.get(photoId)?.image;
     if (!image) throw new InventoryError('not_found');
     return image;
   }
 
   async deletePhoto(photoId: EntityId): Promise<void> {
-    this.photos.delete(photoId);
+    if (this.photos.delete(photoId)) this.record(photoId);
   }
 
   /** Marca de tiempo posterior a la dada, aunque el reloj no haya avanzado. */

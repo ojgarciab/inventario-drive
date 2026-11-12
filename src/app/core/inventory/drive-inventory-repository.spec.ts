@@ -36,7 +36,8 @@ describe('DriveInventoryRepository', () => {
         file('caja', { k: 'c' }),
         file('pilas', { k: 'o', p: 'caja' }),
         file('tipo', { k: 't', i: 'home', o: '10' }),
-        file('foto', { k: 'f' }),
+        file('foto', { k: 'f', p: 'caja' }),
+        file('foto-suelta', { k: 'f' }),
         file('ajeno', {}),
       ];
     });
@@ -47,6 +48,7 @@ describe('DriveInventoryRepository', () => {
     expect(snapshot.changeToken).toBe('t0');
     expect(snapshot.entities.map((e) => e.id)).toEqual(['caja', 'pilas']);
     expect(snapshot.types.map((t) => t.id)).toEqual(['tipo']);
+    expect(snapshot.photos).toMatchObject([{ id: 'foto', entityId: 'caja' }]);
   });
 
   it('traduce los cambios de Drive, incluidos los borrados', async () => {
@@ -55,7 +57,7 @@ describe('DriveInventoryRepository', () => {
       changes: [
         { fileId: 'caja', removed: false, file: file('caja', { k: 'c', p: 'armario' }) },
         { fileId: 'tipo', removed: false, file: file('tipo', { k: 't' }) },
-        { fileId: 'foto', removed: false, file: file('foto', { k: 'f' }) },
+        { fileId: 'foto', removed: false, file: file('foto', { k: 'f', p: 'caja' }) },
         { fileId: 'borrado', removed: true },
         { fileId: 'sin-archivo', removed: false },
       ],
@@ -67,6 +69,7 @@ describe('DriveInventoryRepository', () => {
     expect(changes.nextToken).toBe('t2');
     expect(changes.entities).toMatchObject([{ id: 'caja', parentId: 'armario' }]);
     expect(changes.types.map((t) => t.id)).toEqual(['tipo']);
+    expect(changes.photos).toMatchObject([{ id: 'foto', entityId: 'caja' }]);
     expect(changes.removedIds).toEqual(['borrado', 'sin-archivo']);
   });
 

@@ -12,6 +12,7 @@ import {
   InventoryError,
   Item,
   ItemDraft,
+  Photo,
   TypeChanges,
 } from './models';
 import {
@@ -28,6 +29,7 @@ import {
 export type StoreStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 const NO_CHILDREN: readonly Entity[] = [];
+const NO_PHOTOS: readonly Photo[] = [];
 /** Tiempo que una entidad permanece en la papelera antes de eliminarse del todo. */
 export const TRASH_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -46,6 +48,7 @@ export class InventoryStore {
 
   private readonly all = signal<ReadonlyMap<EntityId, Entity>>(new Map());
   private readonly allTypes = signal<readonly ContainerType[]>([]);
+  private readonly allPhotos = signal<ReadonlyMap<EntityId, Photo>>(new Map());
   private loading: Promise<void> | null = null;
   private refreshing: Promise<void> | null = null;
   private changeToken: string | null = null;
@@ -62,6 +65,19 @@ export class InventoryStore {
   private readonly unplacedIds = computed(() => findUnplaced(this.active()));
   private readonly childIndex = computed(() => indexChildren(this.active(), this.unplacedIds()));
   private readonly typeIndex = computed(() => canonicalTypes(this.allTypes()));
+  /** Galería de cada entidad, de la foto más antigua a la más reciente. */
+  private readonly photoIndex = computed(() => {
+    const index = new Map<EntityId, Photo[]>();
+    for (const photo of this.allPhotos().values()) {
+      const gallery = index.get(photo.entityId);
+      if (gallery) gallery.push(photo);
+      else index.set(photo.entityId, [photo]);
+    }
+    for (const gallery of index.values()) {
+      gallery.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    }
+    return index;
+  });
 
   /** Tipos de contenedor, ordenados y sin duplicados. */
   readonly types = computed(() => this.typeIndex().types);
@@ -102,6 +118,7 @@ export class InventoryStore {
       }
       this.all.set(new Map(snapshot.entities.map((entity) => [entity.id, entity])));
       this.allTypes.set(types);
+      this.allPhotos.set(new Map(snapshot.photos.map((photo) => [photo.id, photo])));
       this.changeToken = snapshot.changeToken;
       this.syncFailures = 0;
       this.status.set('ready');
@@ -144,6 +161,7 @@ export class InventoryStore {
     this.syncFailures = 0;
     this.all.set(new Map());
     this.allTypes.set([]);
+    this.allPhotos.set(new Map());
     this.status.set('idle');
   }
 
@@ -177,6 +195,34 @@ export class InventoryStore {
     const { types, aliases } = this.typeIndex();
     const id = aliases.get(container.typeId) ?? container.typeId;
     return types.find((type) => type.id === id);
+  }
+
+  /** Galería de fotos de una entidad, de la más antigua a la más reciente. */
+  photosOf(id: EntityId): readonly Photo[] {
+    return this.photoIndex().get(id) ?? NO_PHOTOS;
+  }
+
+  /**
+   * Foto destacada de una entidad: la que se ve primero en su ficha y la que
+   * la representa en miniatura. Si no hay ninguna elegida (o la elegida ya
+   * no existe), es la primera de su galería.
+   */
+  featuredPhotoId(id: EntityId): EntityId | null {
+    const gallery = this.photosOf(id);
+    const chosen = this.all().get(id)?.photoId;
+    if (chosen && gallery.some((photo) => photo.id === chosen)) return chosen;
+    return gallery[0]?.id ?? null;
+  }
+
+  /** Anota una foto ya subida a la galería de su entidad. */
+  photoAdded(photo: Photo): void {
+    this.allPhotos.set(new Map(this.allPhotos()).set(photo.id, photo));
+  }
+
+  /** Anota que una foto se ha borrado. */
+  photoRemoved(photoId: EntityId): void {
+    const next = new Map(this.allPhotos());
+    if (next.delete(photoId)) this.allPhotos.set(next);
   }
 
   search(query: string): Entity[] {
@@ -239,10 +285,13 @@ export class InventoryStore {
   /** Elimina definitivamente una entidad de la papelera. */
   async purge(id: EntityId): Promise<void> {
     this.assertOnline();
-    const photoId = this.all().get(id)?.photoId;
+    const photos = this.photosOf(id);
     await this.repository.purgeEntity(id);
-    // La foto queda huérfana sin su entidad; si el borrado falla solo ocupa espacio.
-    if (photoId) await this.repository.deletePhoto(photoId).catch(() => undefined);
+    // Las fotos quedan huérfanas sin su entidad; si el borrado falla solo ocupan espacio.
+    for (const photo of photos) {
+      await this.repository.deletePhoto(photo.id).catch(() => undefined);
+      this.photoRemoved(photo.id);
+    }
     const next = new Map(this.all());
     next.delete(id);
     this.all.set(next);
@@ -315,6 +364,7 @@ export class InventoryStore {
   applyRemote(changes: {
     entities?: Entity[];
     types?: ContainerType[];
+    photos?: Photo[];
     removedIds?: EntityId[];
   }): void {
     const removed = new Set(changes.removedIds ?? []);
@@ -332,6 +382,11 @@ export class InventoryStore {
     for (const id of removed) types.delete(id);
     for (const type of changes.types ?? []) types.set(type.id, type);
     this.allTypes.set([...types.values()]);
+
+    const photos = new Map(this.allPhotos());
+    for (const id of removed) photos.delete(id);
+    for (const photo of changes.photos ?? []) photos.set(photo.id, photo);
+    this.allPhotos.set(photos);
   }
 
   /** Sin conexión se falla al momento, en lugar de esperar a los reintentos de red. */

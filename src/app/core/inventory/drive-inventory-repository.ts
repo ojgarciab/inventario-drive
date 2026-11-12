@@ -4,6 +4,7 @@ import {
   changesToPatch,
   containerToFile,
   fileToEntity,
+  fileToPhoto,
   fileToType,
   itemToFile,
   photoToFile,
@@ -23,6 +24,7 @@ import {
   InventorySnapshot,
   Item,
   ItemDraft,
+  Photo,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -36,14 +38,20 @@ export class DriveInventoryRepository extends InventoryRepository {
     // El token se pide antes de listar: así ningún cambio hecho durante la
     // carga queda fuera de la primera consulta de cambios.
     const changeToken = await this.api.startPageToken();
-    const snapshot: InventorySnapshot = { types: [], entities: [], changeToken };
+    const snapshot: InventorySnapshot = { types: [], entities: [], photos: [], changeToken };
     for (const file of await this.api.listAll()) classify(file, snapshot);
     return snapshot;
   }
 
   async changesSince(token: string): Promise<InventoryChanges> {
     const { changes, nextToken } = await this.api.listChanges(token);
-    const result: InventoryChanges = { types: [], entities: [], removedIds: [], nextToken };
+    const result: InventoryChanges = {
+      types: [],
+      entities: [],
+      photos: [],
+      removedIds: [],
+      nextToken,
+    };
     for (const change of changes) {
       if (change.removed || !change.file) result.removedIds.push(change.fileId);
       else classify(change.file, result);
@@ -79,8 +87,10 @@ export class DriveInventoryRepository extends InventoryRepository {
     return this.api.delete(id);
   }
 
-  async uploadPhoto(entityId: EntityId, image: Blob): Promise<EntityId> {
-    return (await this.api.upload(photoToFile(entityId), image)).id;
+  async uploadPhoto(entityId: EntityId, image: Blob): Promise<Photo> {
+    const photo = fileToPhoto(await this.api.upload(photoToFile(entityId), image));
+    if (!photo) throw new InventoryError('not_found');
+    return photo;
   }
 
   downloadPhoto(photoId: EntityId): Promise<Blob> {
@@ -93,14 +103,22 @@ export class DriveInventoryRepository extends InventoryRepository {
 }
 
 /** Añade el archivo a la lista que le corresponde; ignora los que no son del inventario. */
-function classify(file: DriveFile, into: { types: ContainerType[]; entities: Entity[] }): void {
+function classify(
+  file: DriveFile,
+  into: { types: ContainerType[]; entities: Entity[]; photos: Photo[] },
+): void {
   const entity = fileToEntity(file);
   if (entity) {
     into.entities.push(entity);
     return;
   }
   const type = fileToType(file);
-  if (type) into.types.push(type);
+  if (type) {
+    into.types.push(type);
+    return;
+  }
+  const photo = fileToPhoto(file);
+  if (photo) into.photos.push(photo);
 }
 
 function asEntity(file: DriveFile): Entity {

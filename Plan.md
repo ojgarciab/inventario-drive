@@ -67,7 +67,7 @@ bloque (hasta 1000 archivos por página) sin descargar nada más.
 | Contenedor padre | `appProperties.p` = id del padre (ausente = raíz) |
 | Tipo de contenedor | `appProperties.t` = id del tipo |
 | Cantidad (objetos) | `appProperties.q` |
-| Foto principal | `appProperties.f` = id del archivo de foto |
+| Foto destacada | `appProperties.f` = id del archivo de foto |
 | Etiquetas | `appProperties.g` (lista corta separada por comas) |
 | Borrado lógico | `appProperties.d` = marca de tiempo |
 | Versión de esquema | `appProperties.v` |
@@ -79,10 +79,15 @@ Las claves son de una letra porque cada propiedad admite como máximo 124 bytes
 Las **fotografías** son archivos con contenido binario: un JPEG reducido en
 el cliente a 1600 px de lado mayor (calidad 0,8, con la orientación EXIF
 aplicada), con `appProperties.k = f` y `appProperties.p` = id de la entidad a
-la que pertenece. La entidad apunta a su foto con `appProperties.f`. Cada
-entidad tiene una sola foto y los archivos son inmutables: cambiar de foto
-sube un archivo nuevo y borra el anterior. No se generan miniaturas: las
-listas no muestran fotos, solo las fichas.
+la que pertenece. Cada entidad tiene una **galería**: todas las fotos cuyo
+`p` apunta a ella, ordenadas por fecha de creación (no hay lista de ids en la
+entidad, así que no hay límite por los 124 bytes de una propiedad). Una de
+ellas es la **destacada**, a la que la entidad apunta con `appProperties.f`:
+es la que se ve en grande al abrir la ficha y la que representará a la
+entidad en miniatura cuando las listas muestren fotos. Si `f` falta o apunta
+a una foto que ya no existe, la destacada es la primera de la galería. Los
+archivos son inmutables. No se generan miniaturas: por ahora las listas no
+muestran fotos, solo las fichas.
 
 Los **tipos de contenedor** (`k = t`) llevan nombre, icono (`appProperties.i`)
 y orden (`appProperties.o`). En el primer arranque se crean los tipos por
@@ -324,13 +329,17 @@ ngsw-config.json
 - **`SyncService`**: carga inicial, sondeo de cambios (§3) y aplicación de los
   cambios al almacén.
 - **`PhotoService`**: reduce la imagen en `canvas`, la sube
-  (`uploadType=multipart`) y la asocia a la entidad; si la asociación falla,
-  borra el archivo recién subido. Sirve las fotos como direcciones `blob:` y
+  (`uploadType=multipart`) y la añade a la galería de la entidad; la primera
+  queda como destacada y, si esa asociación falla, borra el archivo recién
+  subido. Permite destacar otra foto de la galería y quitar una (si era la
+  destacada, pasa a serlo la siguiente). Sirve las fotos como direcciones `blob:` y
   las guarda en Cache Storage (`inventario-fotos`) indexadas por id de
   archivo, sin caducidad porque son inmutables. La caché se vacía al cerrar
-  sesión. Al eliminar definitivamente una entidad se borra también su foto.
+  sesión. Al eliminar definitivamente una entidad se borran también sus fotos.
   La captura usa dos `<input type="file" accept="image/*">`: uno con
-  `capture="environment"` (cámara) y otro sin él (galería).
+  `capture="environment"` (cámara) y otro sin él y con `multiple` (galería,
+  varias fotos a la vez). La ficha muestra en grande la foto destacada y,
+  debajo, la galería en pequeño: al pulsar una foto pasa a verse en grande.
 - **`UpdateService`**: comprueba cada hora y al volver a primer plano si hay
   versión nueva (`SwUpdate`) y, cuando está descargada, lo avisa con un botón
   «Actualizar». No se aplica sola para no interrumpir lo que se esté haciendo.
@@ -491,8 +500,8 @@ En Ajustes hay dos exportaciones y una importación:
 
 - **Datos en JSON** (`inventario-AAAA-MM-DD.json`): los tipos de contenedor y
   todas las entidades (contenedores y objetos, incluida la papelera), con sus
-  campos del modelo de dominio, la jerarquía (`parentId`) y el id de su foto
-  (`photoId`). Lleva `format: "inventario-hogar"` y `version: 1`.
+  campos del modelo de dominio, la jerarquía (`parentId`), los ids de las fotos
+  de su galería (`photoIds`) y el de la destacada (`photoId`). Lleva `format: "inventario-hogar"` y `version: 1`.
 - **Datos e imágenes en ZIP** (`inventario-AAAA-MM-DD.zip`): ese mismo JSON
   como `inventario.json` y cada fotografía como `fotos/<photoId>.jpg`, de modo
   que el JSON permite asociar cada imagen a su entidad. Es la copia completa
@@ -500,7 +509,8 @@ En Ajustes hay dos exportaciones y una importación:
 - **Importación** de un `.json` o un `.zip`: **añade** al inventario actual
   lo que contiene la copia, sin borrar ni modificar nada. Crea entidades
   nuevas (con ids nuevos) respetando la jerarquía; reutiliza los tipos que ya
-  existan con el mismo nombre y crea los que falten; sube las fotos del ZIP.
+  existan con el mismo nombre y crea los que falten; sube las fotos del ZIP
+  conservando cuál es la destacada.
   La papelera de la copia no se restaura. Antes de empezar muestra cuántos
   elementos se añadirán y pide confirmación.
 
@@ -544,7 +554,7 @@ compartido entre cuentas (`drive.file`), historial de movimientos.
 | `files.generateIds` admite `space=appDataFolder` | Crear primero y usar el id devuelto |
 | La renovación silenciosa del token puede requerir gesto del usuario (sobre todo en iOS) | Ya previsto: botón «Reanudar sesión» |
 | Los datos de `appDataFolder` están ligados al proyecto de Google Cloud: si se elimina el proyecto, o el usuario borra los datos ocultos de la aplicación desde la configuración de Drive, se pierden | Exportación de datos (JSON) e imágenes (ZIP) desde Ajustes; no eliminar ni sustituir el proyecto de Cloud |
-| Dos dispositivos cambian a la vez la foto de la misma entidad: el archivo del que pierde queda sin referencia | Solo ocupa espacio; se puede añadir una limpieza de fotos huérfanas |
+| Dos dispositivos eligen a la vez la foto destacada de la misma entidad | Gana la última escritura; ambas fotos siguen en la galería |
 | Cuotas y futura facturación del exceso de la API de Drive (§3.1) | Consumo muy inferior al umbral gratuito; proyecto sin cuenta de facturación; reintentos con espera exponencial; el intervalo de sondeo es configurable |
 
 La fase 0 se ejecuta con la página `poc/index.html` (instrucciones en el

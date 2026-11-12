@@ -20,6 +20,7 @@ describe('formato de la copia de seguridad', () => {
       notes: 'Notas',
       parentId: 'c1',
       photoId: 'f1',
+      photoIds: ['f0', 'f1'],
       tags: ['aa'],
       quantity: 4,
       createdAt: '2026-01-01T00:00:00Z',
@@ -42,6 +43,7 @@ describe('formato de la copia de seguridad', () => {
       notes: '',
       parentId: null,
       photoId: null,
+      photoIds: [],
       tags: [],
       typeId: 't1',
       createdAt: '',
@@ -49,6 +51,15 @@ describe('formato de la copia de seguridad', () => {
       deletedAt: null,
     });
     expect(entities[1]).toMatchObject({ kind: 'item', quantity: 4, tags: ['aa'] });
+  });
+
+  it('lee las copias anteriores a las galerías: la única foto es la destacada', () => {
+    const old = valid();
+    Object.assign(old.entities[0], { photoId: 'f1' });
+    expect(parseBackup(JSON.stringify(old)).entities[0]).toMatchObject({
+      photoId: 'f1',
+      photoIds: ['f1'],
+    });
   });
 
   it('rechaza lo que no es una copia del inventario', () => {

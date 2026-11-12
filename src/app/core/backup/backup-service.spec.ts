@@ -49,6 +49,9 @@ async function populate({ store, photos }: Awaited<ReturnType<typeof setup>>) {
   const roto = await store.addItem({ name: 'Roto', parentId: caja.id });
   await store.remove(roto.id);
   await photos.attach(caja.id, new Blob(['FOTO-CAJA']));
+  // La caja tiene dos fotos y la destacada no es la primera.
+  const tapa = await photos.attach(caja.id, new Blob(['FOTO-TAPA']));
+  await photos.feature(caja.id, tapa.id);
   await photos.attach(pilas.id, new Blob(['FOTO-PILAS']));
   return { casa, mueble, caja, pilas };
 }
@@ -108,19 +111,26 @@ describe('BackupService', () => {
     const zip = await app.backups.exportZip((done, total) => progress.push([done, total]));
     const files = await readZip(new Uint8Array(await zip.arrayBuffer()));
 
-    const cajaPhoto = app.store.get(caja.id)?.photoId;
+    const [cajaPhoto, tapaPhoto] = app.store.photosOf(caja.id).map((photo) => photo.id);
     const pilasPhoto = app.store.get(pilas.id)?.photoId;
     expect([...files.keys()].sort()).toEqual(
-      ['inventario.json', `fotos/${cajaPhoto}.jpg`, `fotos/${pilasPhoto}.jpg`].sort(),
+      [
+        'inventario.json',
+        `fotos/${cajaPhoto}.jpg`,
+        `fotos/${tapaPhoto}.jpg`,
+        `fotos/${pilasPhoto}.jpg`,
+      ].sort(),
     );
     expect(new TextDecoder().decode(files.get(`fotos/${cajaPhoto}.jpg`))).toBe('FOTO-CAJA');
+    expect(new TextDecoder().decode(files.get(`fotos/${tapaPhoto}.jpg`))).toBe('FOTO-TAPA');
     expect(JSON.parse(new TextDecoder().decode(files.get('inventario.json'))).entities.length).toBe(
       6,
     );
     expect(progress).toEqual([
-      [0, 2],
-      [1, 2],
-      [2, 2],
+      [0, 3],
+      [1, 3],
+      [2, 3],
+      [3, 3],
     ]);
   });
 
@@ -139,14 +149,14 @@ describe('BackupService', () => {
 
     const target = await setup();
     const loaded = await target.backups.read(zip);
-    expect(loaded.summary).toEqual({ containers: 3, items: 2, photos: 2 });
+    expect(loaded.summary).toEqual({ containers: 3, items: 2, photos: 3 });
 
     const progress: [number, number][] = [];
     const result = await target.backups.import(loaded, (done, total) =>
       progress.push([done, total]),
     );
 
-    expect(result).toEqual({ containers: 3, items: 2, photos: 2, failedPhotos: 0 });
+    expect(result).toEqual({ containers: 3, items: 2, photos: 3, failedPhotos: 0 });
     expect(tree(target.store)).toEqual(expected);
     expect(expected).toEqual([
       'Casa [Casa]',
@@ -165,10 +175,15 @@ describe('BackupService', () => {
     ]);
     const caja = target.store.search('caja')[0];
     expect(caja).toMatchObject({ notes: 'Marcada', tags: ['navidad'] });
-    expect(await text(await target.photos.blob(caja.photoId as string))).toBe('FOTO-CAJA');
+    // La galería vuelve entera y con la misma foto destacada.
+    const gallery = target.store.photosOf(caja.id);
+    expect(
+      await Promise.all(gallery.map(async (p) => text(await target.photos.blob(p.id)))),
+    ).toEqual(['FOTO-CAJA', 'FOTO-TAPA']);
+    expect(await text(await target.photos.blob(caja.photoId as string))).toBe('FOTO-TAPA');
     expect(target.store.trash()).toEqual([]); // la papelera de la copia no se restaura
-    expect(progress.at(0)).toEqual([0, 7]);
-    expect(progress.at(-1)).toEqual([7, 7]);
+    expect(progress.at(0)).toEqual([0, 8]);
+    expect(progress.at(-1)).toEqual([8, 8]);
   });
 
   it('importar un JSON añade sin tocar lo existente y sin fotos', async () => {
@@ -224,7 +239,7 @@ describe('BackupService', () => {
     upload.mockRejectedValueOnce(new Error('sin red'));
     const result = await target.backups.import(await target.backups.read(zip));
 
-    expect(result).toMatchObject({ containers: 3, items: 2, photos: 1, failedPhotos: 1 });
+    expect(result).toMatchObject({ containers: 3, items: 2, photos: 2, failedPhotos: 1 });
   });
 
   it('rechaza archivos que no son una copia', async () => {
