@@ -50,12 +50,19 @@ export class Browse {
     const container = this.container();
     return container ? this.store.typeOf(container) : undefined;
   });
-  protected readonly rows = computed<Row[]>(() =>
+  private readonly rows = computed<Row[]>(() =>
     this.store.children(this.id() ?? null).map((entity) => ({
       entity,
       icon: entity.kind === 'container' ? this.iconOf(entity) : 'label',
       detail: this.detailOf(entity),
     })),
+  );
+  /** Contenedores y objetos van en grupos separados, cada uno con su rejilla. */
+  protected readonly groups = computed(() =>
+    [
+      { label: 'Contenedores', rows: this.rows().filter((r) => r.entity.kind === 'container') },
+      { label: 'Objetos', rows: this.rows().filter((r) => r.entity.kind === 'item') },
+    ].filter((group) => group.rows.length > 0),
   );
   protected readonly newParams = computed(() => (this.id() ? { en: this.id() } : {}));
   protected readonly unplacedCount = computed(() => this.store.unplaced().length);

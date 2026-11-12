@@ -1,4 +1,8 @@
 :host {
+  // Margen lateral con el que la cabecera y los avisos, que ocupan todo el
+  // ancho, alinean su contenido con el de la página.
+  --page-gutter: max(16px, calc((100% - var(--page-width)) / 2 + 16px));
+
   display: flex;
   flex-direction: column;
   min-height: 100%;
@@ -10,6 +14,7 @@ mat-toolbar {
   background: var(--mat-sys-surface-container);
   border-bottom: 1px solid var(--mat-sys-outline-variant);
   box-shadow: 0 1px 3px color-mix(in srgb, var(--mat-sys-shadow) 18%, transparent);
+  padding-inline: var(--page-gutter);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -81,7 +86,7 @@ mat-toolbar {
   flex-wrap: wrap;
   gap: 8px 16px;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 8px var(--page-gutter);
 }
 
 .offline {
@@ -91,7 +96,7 @@ mat-toolbar {
   display: flex;
   font: var(--mat-sys-body-small);
   gap: 12px;
-  padding: 8px 16px;
+  padding: 8px var(--page-gutter);
 }
 
 // Visible solo al llegar con el teclado.
@@ -116,7 +121,7 @@ main {
   box-sizing: border-box;
   flex: 1;
   margin: 0 auto;
-  max-width: 840px;
+  max-width: var(--page-width);
   padding: 16px;
   width: 100%;
 }

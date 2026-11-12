@@ -42,6 +42,43 @@ describe('Browse', () => {
     expect(el.querySelector('mat-nav-list a')?.getAttribute('href')).toBe(`/c/${armario.id}`);
   });
 
+  it('separa los contenedores y los objetos en dos grupos', async () => {
+    const { open, store } = await setupApp();
+    const casa = await store.addContainer({ name: 'Casa', typeId: null });
+    for (const name of ['Salón', 'Cocina', 'Baño']) {
+      await store.addContainer({ name, typeId: null, parentId: casa.id });
+    }
+    await store.addItem({ name: 'Llaves', parentId: casa.id });
+    await store.addItem({ name: 'Paraguas', parentId: casa.id });
+
+    const el = await open(`/c/${casa.id}`);
+
+    const lists = [...el.querySelectorAll('mat-nav-list')];
+    expect(lists.map((list) => list.getAttribute('aria-label'))).toEqual([
+      'Contenedores',
+      'Objetos',
+    ]);
+    expect(texts(lists[0] as HTMLElement, '[matListItemTitle]')).toEqual([
+      'Baño',
+      'Cocina',
+      'Salón',
+    ]);
+    expect(texts(lists[1] as HTMLElement, '[matListItemTitle]')).toEqual(['Llaves', 'Paraguas']);
+    expect(lists[0].querySelectorAll('.container-row').length).toBe(3);
+    expect(lists[1].querySelectorAll('.container-row').length).toBe(0);
+  });
+
+  it('no muestra un grupo vacío', async () => {
+    const { open, store } = await setupApp();
+    const caja = await store.addContainer({ name: 'Caja', typeId: null });
+    await store.addItem({ name: 'Pilas', parentId: caja.id });
+
+    const el = await open(`/c/${caja.id}`);
+
+    const lists = [...el.querySelectorAll('mat-nav-list')];
+    expect(lists.map((list) => list.getAttribute('aria-label'))).toEqual(['Objetos']);
+  });
+
   it('muestra los contenedores raíz en el inicio', async () => {
     const { open, store } = await setupApp();
     await store.addContainer({ name: 'Trastero', typeId: null });

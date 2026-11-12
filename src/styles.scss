@@ -7,6 +7,11 @@
 
 html {
   height: 100%;
+  // Ancho de la página: en pantallas anchas ocupa el 80 % (un 10 % de margen
+  // a cada lado) y nunca menos de 840 px mientras quepan.
+  --page-width: max(840px, 80vw);
+  // Ancho máximo de las fotografías, que se centran en la página.
+  --photo-width: 840px;
   // Por defecto se sigue el tema del dispositivo; `data-theme` (ThemeService)
   // fuerza uno. Los colores de Material se resuelven con `light-dark()`.
   color-scheme: light dark;

@@ -42,7 +42,7 @@
     }
   }
 
-  @if (rows().length === 0) {
+  @if (groups().length === 0) {
     <p class="empty">
       @if (container()) {
         Este contenedor está vacío.
@@ -51,22 +51,24 @@
       }
     </p>
   } @else {
-    <mat-nav-list>
-      @for (row of rows(); track row.entity.id) {
-        <a
-          mat-list-item
-          class="entity-row"
-          [class.container-row]="row.entity.kind === 'container'"
-          [routerLink]="link(row.entity)"
-        >
-          <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
-          <span matListItemTitle>{{ row.entity.name }}</span>
-          @if (row.detail) {
-            <span matListItemLine>{{ row.detail }}</span>
-          }
-        </a>
-      }
-    </mat-nav-list>
+    @for (group of groups(); track group.label) {
+      <mat-nav-list [attr.aria-label]="group.label">
+        @for (row of group.rows; track row.entity.id) {
+          <a
+            mat-list-item
+            class="entity-row"
+            [class.container-row]="row.entity.kind === 'container'"
+            [routerLink]="link(row.entity)"
+          >
+            <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
+            <span matListItemTitle>{{ row.entity.name }}</span>
+            @if (row.detail) {
+              <span matListItemLine>{{ row.detail }}</span>
+            }
+          </a>
+        }
+      </mat-nav-list>
+    }
   }
 
   <button mat-fab class="add" type="button" aria-label="Añadir" [matMenuTriggerFor]="addMenu">

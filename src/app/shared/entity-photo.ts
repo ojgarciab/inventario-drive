@@ -20,6 +20,7 @@ type PhotoState = 'none' | 'loading' | 'ready' | 'error';
 @Component({
   imports: [MatButtonModule, MatIconModule, MatProgressBarModule],
   selector: 'app-entity-photo',
+  host: { '[class.with-photo]': "state() !== 'none'" },
   styleUrl: './entity-photo.scss',
   templateUrl: './entity-photo.html',
 })
