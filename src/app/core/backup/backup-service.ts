@@ -1,11 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import { InventoryStore } from '../inventory/inventory-store';
-import { Container, Entity, EntityId, Item } from '../inventory/models';
+import { EntityId } from '../inventory/models';
 import { normalizeText } from '../inventory/tree-utils';
 import { PhotoService } from '../photos/photo-service';
 import {
   BACKUP_DATA_FILE,
   Backup,
+  BackupEntity,
   BackupError,
   parseBackup,
   photoFileName,
@@ -33,6 +34,9 @@ export interface ImportResult {
   failedPhotos: number;
 }
 
+type BackupContainer = Extract<BackupEntity, { kind: 'container' }>;
+type BackupItem = Extract<BackupEntity, { kind: 'item' }>;
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -45,9 +49,13 @@ export class BackupService {
   /** Todos los datos del inventario, incluida la papelera. */
   snapshot(): Backup {
     // Se guarda el tipo tal y como se ve en la aplicación (sin duplicados).
-    const entities = this.store.everything().map((entity): Entity => {
-      if (entity.kind !== 'container') return entity;
-      return { ...entity, typeId: this.store.typeOf(entity)?.id ?? null };
+    const entities = this.store.everything().map((entity): BackupEntity => {
+      const gallery = {
+        photoId: this.store.featuredPhotoId(entity.id),
+        photoIds: this.store.photosOf(entity.id).map((photo) => photo.id),
+      };
+      if (entity.kind !== 'container') return { ...entity, ...gallery };
+      return { ...entity, ...gallery, typeId: this.store.typeOf(entity)?.id ?? null };
     });
     return toBackup(this.store.types(), entities);
   }
@@ -64,9 +72,7 @@ export class BackupService {
    */
   async exportZip(progress?: Progress): Promise<Blob> {
     const backup = this.snapshot();
-    const photoIds = [
-      ...new Set(backup.entities.map((entity) => entity.photoId).filter((id) => id !== null)),
-    ];
+    const photoIds = [...new Set(backup.entities.flatMap((entity) => entity.photoIds))];
     const entries: ZipEntry[] = [
       { name: BACKUP_DATA_FILE, data: encoder.encode(JSON.stringify(backup, null, 2)) },
     ];
@@ -108,7 +114,7 @@ export class BackupService {
       summary: {
         containers: live.filter((entity) => entity.kind === 'container').length,
         items: live.filter((entity) => entity.kind === 'item').length,
-        photos: live.filter((e) => e.photoId && photos.has(photoFileName(e.photoId))).length,
+        photos: photosToImport(live, photos).length,
       },
     };
   }
@@ -119,17 +125,20 @@ export class BackupService {
    */
   async import({ backup, photos }: LoadedBackup, progress?: Progress): Promise<ImportResult> {
     const live = backup.entities.filter((entity) => !entity.deletedAt);
-    const containers = parentsFirst(live.filter((e): e is Container => e.kind === 'container'));
-    const items = live.filter((e): e is Item => e.kind === 'item');
-    const withPhoto = live.filter((e) => e.photoId && photos.has(photoFileName(e.photoId)));
-    const total = containers.length + items.length + withPhoto.length;
+    const containers = parentsFirst(
+      live.filter((e): e is BackupContainer => e.kind === 'container'),
+    );
+    const items = live.filter((e): e is BackupItem => e.kind === 'item');
+    const toUpload = photosToImport(live, photos);
+    const total = containers.length + items.length + toUpload.length;
     let done = 0;
     const step = () => progress?.(++done, total);
     progress?.(0, total);
 
     const typeIds = await this.importTypes(backup);
     const newIds = new Map<EntityId, EntityId>();
-    const parentOf = (entity: Entity) => (entity.parentId && newIds.get(entity.parentId)) || null;
+    const parentOf = (entity: BackupEntity) =>
+      (entity.parentId && newIds.get(entity.parentId)) || null;
 
     for (const container of containers) {
       const created = await this.store.addContainer({
@@ -155,12 +164,13 @@ export class BackupService {
     }
 
     let failedPhotos = 0;
-    for (const entity of withPhoto) {
-      const data = photos.get(photoFileName(entity.photoId as string)) as Uint8Array;
+    for (const { entity, photoId } of toUpload) {
+      const data = photos.get(photoFileName(photoId)) as Uint8Array;
       try {
         await this.photos.attachStored(
           newIds.get(entity.id) as EntityId,
           new Blob([data as BlobPart], { type: 'image/jpeg' }),
+          photoId === entity.photoId,
         );
       } catch {
         failedPhotos++;
@@ -170,7 +180,7 @@ export class BackupService {
     return {
       containers: containers.length,
       items: items.length,
-      photos: withPhoto.length - failedPhotos,
+      photos: toUpload.length - failedPhotos,
       failedPhotos,
     };
   }
@@ -199,23 +209,35 @@ export class BackupService {
   }
 }
 
+/** Fotos de la copia que se pueden subir: las que el ZIP trae de verdad. */
+function photosToImport(
+  entities: BackupEntity[],
+  files: Map<string, Uint8Array>,
+): { entity: BackupEntity; photoId: string }[] {
+  return entities.flatMap((entity) =>
+    entity.photoIds
+      .filter((photoId) => files.has(photoFileName(photoId)))
+      .map((photoId) => ({ entity, photoId })),
+  );
+}
+
 /**
  * Ordena los contenedores de modo que cada uno vaya después del que lo
  * contiene. Los que no cuelgan de ningún otro de la copia (o forman un
  * ciclo) se tratan como raíces.
  */
-function parentsFirst(containers: Container[]): Container[] {
+function parentsFirst(containers: BackupContainer[]): BackupContainer[] {
   const ids = new Set(containers.map((container) => container.id));
-  const children = new Map<EntityId | null, Container[]>();
+  const children = new Map<EntityId | null, BackupContainer[]>();
   for (const container of containers) {
     const parent = container.parentId && ids.has(container.parentId) ? container.parentId : null;
     children.set(parent, [...(children.get(parent) ?? []), container]);
   }
-  const ordered: Container[] = [];
+  const ordered: BackupContainer[] = [];
   const placed = new Set<EntityId>();
   const pending = [...(children.get(null) ?? [])];
   while (pending.length > 0) {
-    const container = pending.shift() as Container;
+    const container = pending.shift() as BackupContainer;
     if (placed.has(container.id)) continue;
     placed.add(container.id);
     ordered.push(container);

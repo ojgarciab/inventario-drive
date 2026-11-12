@@ -17,6 +17,7 @@ interface BaseEntity {
   notes: string;
   /** Contenedor en el que está; `null` si está en la raíz. */
   parentId: EntityId | null;
+  /** Foto destacada, una de las de su galería; `null` si no se ha elegido. */
   photoId: EntityId | null;
   tags: string[];
   createdAt: string;
@@ -36,6 +37,14 @@ export interface Item extends BaseEntity {
 }
 
 export type Entity = Container | Item;
+
+/** Fotografía de la galería de un contenedor o de un objeto. */
+export interface Photo {
+  id: EntityId;
+  /** Entidad a la que pertenece. */
+  entityId: EntityId;
+  createdAt: string;
+}
 
 export interface ContainerDraft {
   name: string;
@@ -77,6 +86,7 @@ export type TypeChanges = Partial<Pick<ContainerType, 'name' | 'icon' | 'order'>
 export interface InventorySnapshot {
   types: ContainerType[];
   entities: Entity[];
+  photos: Photo[];
   /** Punto desde el que pedir los cambios posteriores a esta carga. */
   changeToken: string;
 }
@@ -85,6 +95,7 @@ export interface InventorySnapshot {
 export interface InventoryChanges {
   types: ContainerType[];
   entities: Entity[];
+  photos: Photo[];
   removedIds: EntityId[];
   /** Punto desde el que pedir los cambios siguientes. */
   nextToken: string;

@@ -318,6 +318,7 @@ describe('InventoryStore', () => {
       vi.spyOn(repository, 'changesSince').mockResolvedValueOnce({
         entities: [stale],
         types: [],
+        photos: [],
         removedIds: [],
         nextToken: '0',
       });

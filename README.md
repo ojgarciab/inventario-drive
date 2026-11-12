@@ -17,7 +17,8 @@ Casa
 - Un contenedor se puede trasladar a otro con todo su contenido (por ejemplo,
   una caja de un armario a otro de otra habitación).
 - Búsqueda de objetos mostrando la ruta completa hasta ellos.
-- Fotografías de objetos y contenedores.
+- Fotografías de objetos y contenedores: varias por elemento, con una
+  destacada y una galería en la ficha.
 
 ## Cómo funciona
 

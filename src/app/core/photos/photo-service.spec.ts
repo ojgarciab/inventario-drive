@@ -86,7 +86,10 @@ describe('PhotoService', () => {
 
   it('descarga una foto una sola vez y después la sirve desde la caché del dispositivo', async () => {
     const first = await setup();
-    const photoId = await first.repository.uploadPhoto(first.item.id, new Blob(['de otro móvil']));
+    const { id: photoId } = await first.repository.uploadPhoto(
+      first.item.id,
+      new Blob(['de otro móvil']),
+    );
     const download = vi.spyOn(first.repository, 'downloadPhoto');
 
     await first.photos.objectUrl(photoId);
@@ -101,28 +104,79 @@ describe('PhotoService', () => {
     expect(await created.at(-1)?.text()).toBe('de otro móvil');
   });
 
-  it('al cambiar de foto borra la anterior de Drive y de la caché', async () => {
+  it('añade más fotos a la galería sin cambiar la destacada', async () => {
     const { photos, store, repository, item } = await setup();
-    await photos.attach(item.id, new Blob(['primera']));
-    const first = store.get(item.id)?.photoId as string;
+    const first = await photos.attach(item.id, new Blob(['primera']));
 
-    await photos.attach(item.id, new Blob(['segunda']));
+    const second = await photos.attach(item.id, new Blob(['segunda']));
 
-    const second = store.get(item.id)?.photoId as string;
-    expect(second).not.toBe(first);
-    await expect(repository.downloadPhoto(first)).rejects.toThrow('not_found');
-    expect([...cached.keys()]).toEqual([`/__fotos__/${second}`]);
+    expect(store.photosOf(item.id).map((photo) => photo.id)).toEqual([first.id, second.id]);
+    expect(store.get(item.id)?.photoId).toBe(first.id);
+    expect(store.featuredPhotoId(item.id)).toBe(first.id);
+    expect(await (await repository.downloadPhoto(first.id)).text()).toBe('reducida:primera');
+    expect(cached.size).toBe(2);
   });
 
-  it('al quitar la foto la desvincula y la borra', async () => {
-    const { photos, store, repository, item } = await setup();
-    await photos.attach(item.id, new Blob(['original']));
-    const photoId = store.get(item.id)?.photoId as string;
+  it('permite elegir otra foto de la galería como destacada', async () => {
+    const { photos, store, item } = await setup();
+    await photos.attach(item.id, new Blob(['primera']));
+    const second = await photos.attach(item.id, new Blob(['segunda']));
 
-    await photos.detach(item.id);
+    await photos.feature(item.id, second.id);
+
+    expect(store.featuredPhotoId(item.id)).toBe(second.id);
+    await expect(photos.feature(item.id, 'de-otra-entidad')).rejects.toThrow('not_found');
+  });
+
+  it('ve la galería que otro dispositivo ha ido llenando', async () => {
+    const { store, repository, item } = await setup();
+    const remote = await repository.uploadPhoto(item.id, new Blob(['x']));
+    await store.refresh();
+    expect(store.photosOf(item.id)).toEqual([remote]);
+    // Sin destacada elegida lo es la primera de la galería.
+    expect(store.featuredPhotoId(item.id)).toBe(remote.id);
+
+    await repository.deletePhoto(remote.id);
+    await store.refresh();
+    expect(store.photosOf(item.id)).toEqual([]);
+    expect(store.featuredPhotoId(item.id)).toBeNull();
+  });
+
+  it('al quitar la foto destacada pasa a serlo la siguiente', async () => {
+    const { photos, store, repository, item } = await setup();
+    const first = await photos.attach(item.id, new Blob(['primera']));
+    const second = await photos.attach(item.id, new Blob(['segunda']));
+
+    await photos.remove(item.id, first.id);
+
+    expect(store.get(item.id)?.photoId).toBe(second.id);
+    expect(store.photosOf(item.id)).toEqual([second]);
+    await expect(repository.downloadPhoto(first.id)).rejects.toThrow('not_found');
+    expect([...cached.keys()]).toEqual([`/__fotos__/${second.id}`]);
+  });
+
+  it('al quitar una foto que no es la destacada no toca la entidad', async () => {
+    const { photos, store, repository, item } = await setup();
+    const first = await photos.attach(item.id, new Blob(['primera']));
+    const second = await photos.attach(item.id, new Blob(['segunda']));
+    const update = vi.spyOn(repository, 'updateEntity');
+
+    await photos.remove(item.id, second.id);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(store.featuredPhotoId(item.id)).toBe(first.id);
+    expect(store.photosOf(item.id)).toEqual([first]);
+  });
+
+  it('al quitar la única foto la entidad se queda sin ninguna', async () => {
+    const { photos, store, repository, item } = await setup();
+    const photo = await photos.attach(item.id, new Blob(['original']));
+
+    await photos.remove(item.id, photo.id);
 
     expect(store.get(item.id)?.photoId).toBeNull();
-    await expect(repository.downloadPhoto(photoId)).rejects.toThrow('not_found');
+    expect(store.photosOf(item.id)).toEqual([]);
+    await expect(repository.downloadPhoto(photo.id)).rejects.toThrow('not_found');
     expect(cached.size).toBe(0);
   });
 
@@ -134,6 +188,7 @@ describe('PhotoService', () => {
     await expect(photos.attach(item.id, new Blob(['original']))).rejects.toThrow('sin red');
 
     expect(store.get(item.id)?.photoId).toBeNull();
+    expect(store.photosOf(item.id)).toEqual([]);
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
@@ -149,28 +204,29 @@ describe('PhotoService', () => {
   it('funciona sin caché del navegador, descargando cuando haga falta', async () => {
     vi.stubGlobal('caches', undefined);
     const { photos, repository, item } = await setup();
-    const photoId = await repository.uploadPhoto(item.id, new Blob(['x']));
+    const { id: photoId } = await repository.uploadPhoto(item.id, new Blob(['x']));
     expect(await photos.objectUrl(photoId)).toBe('blob:foto-1');
   });
 
   it('permite reintentar una descarga fallida', async () => {
     const { photos, repository, item } = await setup();
-    const photoId = await repository.uploadPhoto(item.id, new Blob(['x']));
+    const { id: photoId } = await repository.uploadPhoto(item.id, new Blob(['x']));
     vi.spyOn(repository, 'downloadPhoto').mockRejectedValueOnce(new Error('sin red'));
 
     await expect(photos.objectUrl(photoId)).rejects.toThrow('sin red');
     expect(await photos.objectUrl(photoId)).toBe('blob:foto-1');
   });
 
-  it('al eliminar definitivamente una entidad se borra también su foto', async () => {
+  it('al eliminar definitivamente una entidad se borran también sus fotos', async () => {
     const { photos, store, repository, item } = await setup();
-    await photos.attach(item.id, new Blob(['original']));
-    const photoId = store.get(item.id)?.photoId as string;
+    const first = await photos.attach(item.id, new Blob(['primera']));
+    const second = await photos.attach(item.id, new Blob(['segunda']));
     await store.remove(item.id);
 
     await store.purge(item.id);
 
-    await expect(repository.downloadPhoto(photoId)).rejects.toThrow('not_found');
+    await expect(repository.downloadPhoto(first.id)).rejects.toThrow('not_found');
+    await expect(repository.downloadPhoto(second.id)).rejects.toThrow('not_found');
   });
 
   it('vacía la caché del dispositivo al cerrar sesión', async () => {

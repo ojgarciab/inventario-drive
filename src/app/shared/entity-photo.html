@@ -21,6 +21,32 @@
   }
 }
 
+@if (gallery().length > 1) {
+  <ul class="gallery" aria-label="Galería de fotos">
+    @for (photo of gallery(); track photo.id; let index = $index) {
+      <li>
+        <button
+          type="button"
+          class="thumb"
+          [class.selected]="photo.id === selectedId()"
+          [attr.aria-current]="photo.id === selectedId() ? 'true' : null"
+          [attr.aria-label]="
+            'Ver la foto ' + (index + 1) + (photo.id === featuredId() ? ' (destacada)' : '')
+          "
+          (click)="select(photo.id)"
+        >
+          @if (urls().get(photo.id); as thumbUrl) {
+            <img [src]="thumbUrl" alt="" />
+          }
+          @if (photo.id === featuredId()) {
+            <mat-icon class="featured" aria-hidden="true">star</mat-icon>
+          }
+        </button>
+      </li>
+    }
+  </ul>
+}
+
 @if (busy()) {
   <mat-progress-bar mode="indeterminate" aria-label="Guardando la foto" />
 }
@@ -28,13 +54,19 @@
 <div class="actions">
   <button matButton type="button" [disabled]="busy()" (click)="camera.click()">
     <mat-icon>photo_camera</mat-icon>
-    {{ photoId() ? 'Cambiar foto' : 'Hacer foto' }}
+    Hacer foto
   </button>
-  <button matButton type="button" [disabled]="busy()" (click)="gallery.click()">
+  <button matButton type="button" [disabled]="busy()" (click)="library.click()">
     <mat-icon>image</mat-icon>
     Galería
   </button>
-  @if (photoId()) {
+  @if (selectedId()) {
+    @if (selectedId() !== featuredId()) {
+      <button matButton type="button" class="feature" [disabled]="busy()" (click)="feature()">
+        <mat-icon>star</mat-icon>
+        Destacar
+      </button>
+    }
     <button matButton type="button" class="remove" [disabled]="busy()" (click)="remove()">
       <mat-icon>hide_image</mat-icon>
       Quitar
@@ -52,10 +84,11 @@
   (change)="pick(camera)"
 />
 <input
-  #gallery
+  #library
   hidden
+  multiple
   type="file"
   accept="image/*"
-  aria-label="Elegir una foto de la galería"
-  (change)="pick(gallery)"
+  aria-label="Elegir fotos de la galería"
+  (change)="pick(library)"
 />

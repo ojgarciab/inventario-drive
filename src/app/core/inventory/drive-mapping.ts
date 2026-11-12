@@ -8,6 +8,7 @@ import {
   ItemDraft,
   NAME_MAX_LENGTH,
   NOTES_MAX_LENGTH,
+  Photo,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -20,7 +21,7 @@ import {
 //   p  id del contenedor padre (ausente = raíz)
 //   t  id del tipo de contenedor
 //   q  cantidad (objetos)
-//   f  id del archivo de la foto principal
+//   f  id del archivo de la foto destacada
 //   g  etiquetas separadas por comas
 //   d  fecha de borrado lógico
 //   i  icono (tipos)     o  orden (tipos)     s  identificador de tipo por defecto
@@ -68,6 +69,13 @@ export function fileToType(file: DriveFile): ContainerType | null {
     order: Number.isFinite(order) ? order : 0,
     slug: props['s'] ?? null,
   };
+}
+
+/** Las fotos de una entidad son los archivos `k = f` cuyo `p` apunta a ella. */
+export function fileToPhoto(file: DriveFile): Photo | null {
+  const props = file.appProperties ?? {};
+  if (props['k'] !== 'f' || !props['p']) return null;
+  return { id: file.id, entityId: props['p'], createdAt: file.createdTime };
 }
 
 export function containerToFile(draft: ContainerDraft) {
