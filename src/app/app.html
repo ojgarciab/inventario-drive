@@ -1,3 +1,7 @@
+<a class="skip" href="#contenido" (click)="$event.preventDefault(); main.focus()"
+  >Saltar al contenido</a
+>
+
 <mat-toolbar>
   <a class="title" routerLink="/">Inventario del hogar</a>
   @if (user(); as u) {
@@ -60,7 +64,7 @@
   <mat-progress-bar mode="indeterminate" aria-label="Cargando el inventario" />
 }
 
-<main>
+<main #main id="contenido" tabindex="-1">
   @if (!user() || inventory() === 'ready') {
     <router-outlet />
   } @else if (inventory() === 'error') {

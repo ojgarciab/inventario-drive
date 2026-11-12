@@ -6,6 +6,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { Container, Entity } from '../../core/inventory/models';
+import { usePageTitle } from '../../core/pwa/page-title';
 import { Breadcrumb } from '../../shared/breadcrumb';
 import { EntityActions } from '../../shared/entity-actions';
 import { EntityPhoto } from '../../shared/entity-photo';
@@ -59,6 +60,10 @@ export class Browse {
   protected readonly newParams = computed(() => (this.id() ? { en: this.id() } : {}));
   protected readonly unplacedCount = computed(() => this.store.unplaced().length);
   protected readonly link = entityLink;
+
+  constructor() {
+    usePageTitle(() => (this.id() ? this.container()?.name : 'Inicio'));
+  }
 
   private iconOf(container: Container): string {
     return this.store.typeOf(container)?.icon ?? 'inventory_2';

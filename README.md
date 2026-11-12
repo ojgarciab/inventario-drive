@@ -46,10 +46,9 @@ Producción: <https://inventario.linaresdigital.com>
 El diseño detallado, la arquitectura y las fases de implementación están en
 [Plan.md](Plan.md).
 
-> **Estado**: fase 9 (ajustes). La aplicación es funcionalmente completa:
-> contenedores y objetos con fotos, búsqueda, sincronización entre
-> dispositivos, tipos configurables y copias de seguridad. Queda el pulido
-> final (accesibilidad, iconos, aviso de actualización).
+> **Estado**: las diez fases del plan están implementadas: contenedores y
+> objetos con fotos, búsqueda, sincronización entre dispositivos, tipos
+> configurables, copias de seguridad, iconos propios y aviso de versión nueva.
 
 ## Prueba de concepto (fase 0)
 
@@ -227,6 +226,7 @@ orígenes de JavaScript autorizados del cliente OAuth.
 | `npm test -- --watch=false` | Pruebas unitarias (Vitest) |
 | `npm run lint` | ESLint |
 | `npm run build` | Compilación de producción en `dist/inventario-drive/browser` |
+| `./scripts/make-icons.sh` | Regenera los iconos desde los SVG de `public/icons` (Inkscape e ImageMagick) |
 
 Para probar la interfaz sin cuenta de Google, abra
 <http://localhost:4200/?demo>: carga un inventario de ejemplo en memoria que

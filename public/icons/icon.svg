@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Inventario del hogar</title>
+  <rect width="512" height="512" rx="104" fill="#005cbb"/>
+  <g id="casa">
+    <path d="M256 104 L412 228 V404 H100 V228 Z" fill="#fff" stroke="#fff" stroke-width="28" stroke-linejoin="round"/>
+    <rect x="168" y="262" width="176" height="40" rx="8" fill="#005cbb"/>
+    <rect x="180" y="314" width="152" height="90" rx="6" fill="#005cbb"/>
+    <rect x="232" y="338" width="48" height="20" rx="6" fill="#fff"/>
+  </g>
+</svg>

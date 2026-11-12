@@ -3,6 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { InventoryStore } from '../../core/inventory/inventory-store';
+import { usePageTitle } from '../../core/pwa/page-title';
 import { Breadcrumb } from '../../shared/breadcrumb';
 import { EntityActions } from '../../shared/entity-actions';
 import { EntityPhoto } from '../../shared/entity-photo';
@@ -52,4 +53,8 @@ export class ItemDetail {
     return entity?.kind === 'item' ? entity : undefined;
   });
   protected readonly path = computed(() => (this.item() ? this.store.path(this.id()) : []));
+
+  constructor() {
+    usePageTitle(() => this.item()?.name);
+  }
 }

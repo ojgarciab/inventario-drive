@@ -331,7 +331,9 @@ ngsw-config.json
   sesión. Al eliminar definitivamente una entidad se borra también su foto.
   La captura usa dos `<input type="file" accept="image/*">`: uno con
   `capture="environment"` (cámara) y otro sin él (galería).
-- **`UpdateService`**: avisa de nueva versión de la aplicación (`SwUpdate`).
+- **`UpdateService`**: comprueba cada hora y al volver a primer plano si hay
+  versión nueva (`SwUpdate`) y, cuando está descargada, lo avisa con un botón
+  «Actualizar». No se aplica sola para no interrumpir lo que se esté haciendo.
 
 ### 5.4 Modelo de dominio
 
@@ -368,18 +370,28 @@ interface Item      extends BaseEntity { kind: 'item'; quantity: number; }
 | `/papelera` | Restaurar o eliminar definitivamente |
 | `/ajustes` | Tipos de contenedor, exportación de datos (JSON) e imágenes (ZIP), importación, sesión |
 
-Pautas de interfaz: una columna, barra inferior de navegación (Inicio, Buscar,
-Ajustes), acciones principales al alcance del pulgar, diálogos a pantalla
-completa en móvil; a partir de 840 px, disposición en dos paneles (árbol +
-detalle). Mover: acción «Mover a…» que abre un selector de destino con el
-mismo navegador de contenedores, excluyendo el propio contenedor y sus
-descendientes. Las rutas `/c/:id` son estables, lo que permite más adelante
-imprimir etiquetas con código QR para las cajas.
+Pautas de interfaz: una columna (ancho máximo de 840 px, centrada en
+pantallas grandes), búsqueda y menú de cuenta en la barra superior, alta con
+botón flotante al alcance del pulgar. Mover: acción «Mover a…» que abre un
+selector de destino con el mismo navegador de contenedores, excluyendo el
+propio contenedor y sus descendientes. Las rutas `/c/:id` son estables, lo
+que permite más adelante imprimir etiquetas con código QR para las cajas.
+
+Dos ideas del diseño inicial no se han implementado: la barra inferior de
+navegación (Inicio, Buscar, Ajustes), sustituida por la lupa y el menú de la
+barra superior, y la disposición en dos paneles (árbol + detalle) a partir de
+840 px. Quedan como posibles mejoras.
+
+Accesibilidad: cada pantalla tiene su título de pestaña (el nombre del
+contenedor u objeto en las fichas); al cambiar de pantalla el foco pasa al
+contenido; hay un enlace «Saltar al contenido» para teclado; los botones de
+solo icono llevan etiqueta.
 
 ### 5.6 PWA y service worker
 
-- `manifest.webmanifest`: `display: standalone`, iconos 192/512 y
-  *maskable*, `start_url: /`, idioma `es`.
+- `manifest.webmanifest`: `display: standalone`, iconos 192/512 normales y
+  *maskable*, `start_url: ./`, idioma `es`. Los iconos se generan desde los
+  SVG de `public/icons` con `scripts/make-icons.sh` (Inkscape e ImageMagick).
 - `ngsw-config.json`: precarga del *app shell* y recursos estáticos. **No** se
   declaran `dataGroups` para `googleapis.com`: las respuestas de Drive nunca se
   sirven desde caché.
@@ -463,6 +475,15 @@ como `/c/abc`.
 | **8. Fotografías** | Captura, redimensionado, subida, caché | Foto visible en un segundo dispositivo; sin nueva descarga al reabrir |
 | **9. Ajustes** | Tipos configurables (añadir, editar, reordenar, eliminar); exportación de datos en JSON y de datos e imágenes en ZIP; importación (§7.1) | Añadir tipo «Estantería»; copia de seguridad restaurable, fotos incluidas |
 | **10. Pulido** | Accesibilidad, Lighthouse, iconos, aviso de actualización | Lighthouse PWA/Accesibilidad ≥ 90 |
+
+Resultado de la fase 10 (Lighthouse 13.6, móvil, 12-11-2026): accesibilidad
+**100** en las ocho pantallas principales (inicio, contenedor, objeto,
+búsqueda, ajustes, formulario, mover y papelera); en la compilación de
+producción, accesibilidad 100, buenas prácticas 100, SEO 100 y rendimiento 82
+(con red 4G lenta simulada y un servidor local sin compresión). Lighthouse ya
+no tiene categoría PWA, así que la instalabilidad se comprueba a mano:
+manifiesto con nombre, `start_url`, `display` e iconos de 192 y 512 px, y
+service worker activo sobre HTTPS.
 
 ### 7.1 Copias de seguridad
 

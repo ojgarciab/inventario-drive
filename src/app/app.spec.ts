@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { App } from './app';
 import { AuthService, AuthStatus, UserProfile } from './core/auth/auth-service';
 import { InMemoryInventoryRepository } from './core/inventory/in-memory-inventory-repository';
@@ -21,7 +21,7 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: '**', children: [] }]),
         { provide: InventoryRepository, useValue: repository },
         { provide: AuthService, useValue: { status, user, signIn, signOut } },
         { provide: Connectivity, useValue: { online } },
@@ -118,5 +118,35 @@ describe('App', () => {
     await settle();
     expect(item()?.getAttribute('aria-checked')).toBe('false');
     localStorage.clear();
+  });
+
+  it('al cambiar de pantalla lleva el foco al contenido, pero no al cambiar solo los parámetros', async () => {
+    status.set('signedIn');
+    user.set(casa);
+    const { el, settle } = await render();
+    const router = TestBed.inject(Router);
+    const main = el.querySelector('main') as HTMLElement;
+    const button = el.querySelector('[aria-label="Cuenta"]') as HTMLElement;
+
+    await router.navigateByUrl('/');
+    await settle();
+    button.focus();
+    await router.navigateByUrl('/?q=uno'); // como hace la búsqueda al escribir
+    await settle();
+    expect(document.activeElement).toBe(button);
+
+    await router.navigateByUrl('/otra');
+    await settle();
+    expect(document.activeElement).toBe(main);
+  });
+
+  it('ofrece un enlace para saltar al contenido con el teclado', async () => {
+    status.set('signedOut');
+    user.set(null);
+    const { el } = await render();
+    const skip = el.querySelector<HTMLAnchorElement>('a.skip');
+    expect(skip?.textContent).toBe('Saltar al contenido');
+    skip?.click();
+    expect(document.activeElement).toBe(el.querySelector('main'));
   });
 });
