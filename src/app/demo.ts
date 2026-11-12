@@ -23,6 +23,7 @@ export function demoProviders(): Provider[] {
     user,
     isConfigured: true,
     signIn: async () => undefined,
+    prepare: () => undefined,
     validToken: async () => 'demo',
     renew: async () => 'demo',
     signOut: () => {

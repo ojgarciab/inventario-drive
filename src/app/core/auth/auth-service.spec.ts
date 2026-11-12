@@ -133,6 +133,22 @@ describe('AuthService', () => {
     expect(auth.status()).toBe('signedIn');
   });
 
+  it('al reanudar abre una sola ventana aunque coincidan varias peticiones', async () => {
+    const requests = fakeGis([token('t1', 30), token('t2')]);
+    const { auth, http } = setup();
+    await signIn(auth, http);
+
+    // El toque que reanuda la sesión puede lanzar además una llamada a Drive.
+    const resumed = Promise.all([auth.signIn(), auth.signIn(), auth.validToken()]);
+    await new Promise((resolve) => setTimeout(resolve));
+    http
+      .expectOne((r) => r.url.endsWith('/about'))
+      .flush({ user: { displayName: 'Casa', emailAddress: 'casa@example.com' } });
+
+    expect((await resumed)[2]).toBe('t2');
+    expect(requests.length).toBe(2);
+  });
+
   it('conserva la sesión aunque el sistema cierre el navegador', async () => {
     fakeGis([token('t1')]);
     const first = setup();

@@ -63,6 +63,7 @@ export class AuthService {
   private readonly session = signal<Session | null>(this.restore());
   private readonly needsResume = signal(this.isExpired(this.session()));
   private renewal: Promise<string> | null = null;
+  private signingIn: Promise<void> | null = null;
   private gis: Promise<GisOauth2> | null = null;
 
   readonly user = computed(() => this.session()?.user ?? null);
@@ -72,8 +73,24 @@ export class AuthService {
   });
   readonly isConfigured = this.clientId !== '';
 
-  /** Inicia o reanuda la sesión. Debe llamarse desde un gesto del usuario. */
-  async signIn(): Promise<void> {
+  /**
+   * Inicia o reanuda la sesión. Debe llamarse desde un gesto del usuario.
+   * Las llamadas simultáneas comparten la petición: solo se abre una ventana.
+   */
+  signIn(): Promise<void> {
+    this.signingIn ??= this.signInOnce().finally(() => (this.signingIn = null));
+    return this.signingIn;
+  }
+
+  /**
+   * Deja cargada la biblioteca de Google para que la ventana de inicio de
+   * sesión se abra al instante, dentro del gesto del usuario.
+   */
+  prepare(): void {
+    if (this.isConfigured) this.loadGis().catch(() => undefined);
+  }
+
+  private async signInOnce(): Promise<void> {
     const hint = this.session()?.user.email ?? this.readHint();
     const response = await this.requestToken(hint ? { prompt: '', login_hint: hint } : {});
     const accessToken = response.access_token as string;
@@ -102,6 +119,11 @@ export class AuthService {
 
   /** Pide un token nuevo sin interacción. Las llamadas simultáneas comparten petición. */
   renew(): Promise<string> {
+    // Si ya se está reanudando la sesión, se espera a ese token en lugar de pedir otro.
+    const signingIn = this.signingIn;
+    if (signingIn && this.session()) {
+      return signingIn.then(() => (this.session() as Session).accessToken);
+    }
     this.renewal ??= this.renewOnce().finally(() => (this.renewal = null));
     return this.renewal;
   }

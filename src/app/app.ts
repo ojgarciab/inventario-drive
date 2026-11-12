@@ -1,4 +1,13 @@
-import { Component, ElementRef, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import {
+  Component,
+  DOCUMENT,
+  ElementRef,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -35,6 +44,7 @@ export class App {
   private readonly router = inject(Router);
   private readonly sync = inject(SyncService);
   private readonly photos = inject(PhotoService);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly user = this.auth.user;
   protected readonly status = this.auth.status;
@@ -65,6 +75,20 @@ export class App {
         }
         this.currentPath = path;
       });
+    // Con la sesión caducada, el primer toque en cualquier parte la reanuda:
+    // Google solo deja abrir su ventana desde un gesto del usuario. Se intenta
+    // una vez; si falla, queda el botón «Reanudar sesión».
+    effect((onCleanup) => {
+      if (this.status() !== 'expired') return;
+      this.auth.prepare();
+      const stop = () => this.document.removeEventListener('click', onGesture, true);
+      const onGesture = () => {
+        stop();
+        void this.resume();
+      };
+      this.document.addEventListener('click', onGesture, true);
+      onCleanup(stop);
+    });
     // El inventario se carga entero en cuanto hay sesión vigente.
     effect(() => {
       if (this.status() === 'signedIn' && untracked(this.inventory) === 'idle') this.load();
