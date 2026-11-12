@@ -3,7 +3,37 @@
 >
 
 <mat-toolbar>
-  <a class="title" routerLink="/">Inventario del hogar</a>
+  <a class="title" routerLink="/">
+    <!-- Clip que sujeta la etiqueta del archivo. -->
+    <svg class="clip" viewBox="0 0 24 40" aria-hidden="true">
+      <path d="M6 12v17a6 6 0 0 0 12 0V9a4.5 4.5 0 0 0-9 0v19a1.5 1.5 0 0 0 3 0V12" />
+    </svg>
+    <span class="label">Inventario del hogar</span>
+  </a>
+  <button
+    matIconButton
+    type="button"
+    class="theme"
+    [attr.aria-label]="'Tema: ' + themeLabel()"
+    [matMenuTriggerFor]="themeMenu"
+  >
+    <mat-icon>{{ themeIcon() }}</mat-icon>
+  </button>
+  <mat-menu #themeMenu="matMenu">
+    @for (option of themes; track option.value) {
+      <button
+        mat-menu-item
+        type="button"
+        role="menuitemradio"
+        [attr.aria-checked]="theme() === option.value"
+        [class.selected-theme]="theme() === option.value"
+        (click)="setTheme(option.value)"
+      >
+        <mat-icon>{{ option.icon }}</mat-icon>
+        <span>{{ option.label }}</span>
+      </button>
+    }
+  </mat-menu>
   @if (user(); as u) {
     <a matIconButton aria-label="Buscar" routerLink="/buscar">
       <mat-icon>search</mat-icon>
@@ -48,7 +78,7 @@
 
 @if (status() === 'expired') {
   <div class="resume" role="alert">
-    <span>{{ resumeError() ?? 'La sesión ha caducado.' }}</span>
+    <span>{{ resumeError() ?? 'La sesión ha caducado. Toca la pantalla para reanudarla.' }}</span>
     <button matButton="tonal" type="button" (click)="resume()">Reanudar sesión</button>
   </div>
 }

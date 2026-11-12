@@ -1,4 +1,14 @@
-import { Component, ElementRef, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import {
+  Component,
+  DOCUMENT,
+  computed,
+  ElementRef,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,10 +20,17 @@ import { filter } from 'rxjs';
 import { authErrorMessage } from './core/auth/auth-messages';
 import { AuthService } from './core/auth/auth-service';
 import { InventoryStore } from './core/inventory/inventory-store';
+import { ThemePreference, ThemeService } from './core/theme/theme-service';
 import { SyncService } from './core/inventory/sync-service';
 import { PhotoService } from './core/photos/photo-service';
 import { Connectivity } from './core/pwa/connectivity';
 import { UpdateService } from './core/pwa/update-service';
+
+const THEMES: readonly { value: ThemePreference; label: string; icon: string }[] = [
+  { value: 'auto', label: 'Automático', icon: 'brightness_auto' },
+  { value: 'light', label: 'Claro', icon: 'light_mode' },
+  { value: 'dark', label: 'Oscuro', icon: 'dark_mode' },
+];
 
 @Component({
   imports: [
@@ -35,6 +52,7 @@ export class App {
   private readonly router = inject(Router);
   private readonly sync = inject(SyncService);
   private readonly photos = inject(PhotoService);
+  private readonly document = inject(DOCUMENT);
 
   protected readonly user = this.auth.user;
   protected readonly status = this.auth.status;
@@ -42,6 +60,14 @@ export class App {
   protected readonly online = inject(Connectivity).online;
   protected readonly autoSync = this.sync.autoSync;
   protected readonly resumeError = signal<string | null>(null);
+  private readonly themeService = inject(ThemeService);
+  protected readonly themes = THEMES;
+  protected readonly theme = this.themeService.preference;
+  private readonly themeOption = computed(
+    () => THEMES.find((option) => option.value === this.theme()) ?? THEMES[0],
+  );
+  protected readonly themeIcon = computed(() => this.themeOption().icon);
+  protected readonly themeLabel = computed(() => this.themeOption().label.toLowerCase());
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
   /** Ruta de la pantalla actual, sin parámetros de consulta. */
   private currentPath: string | null = null;
@@ -65,6 +91,20 @@ export class App {
         }
         this.currentPath = path;
       });
+    // Con la sesión caducada, el primer toque en cualquier parte la reanuda:
+    // Google solo deja abrir su ventana desde un gesto del usuario. Se intenta
+    // una vez; si falla, queda el botón «Reanudar sesión».
+    effect((onCleanup) => {
+      if (this.status() !== 'expired') return;
+      this.auth.prepare();
+      const stop = () => this.document.removeEventListener('click', onGesture, true);
+      const onGesture = () => {
+        stop();
+        void this.resume();
+      };
+      this.document.addEventListener('click', onGesture, true);
+      onCleanup(stop);
+    });
     // El inventario se carga entero en cuanto hay sesión vigente.
     effect(() => {
       if (this.status() === 'signedIn' && untracked(this.inventory) === 'idle') this.load();
@@ -85,6 +125,10 @@ export class App {
     } catch (error) {
       this.resumeError.set(authErrorMessage(error));
     }
+  }
+
+  protected setTheme(preference: ThemePreference): void {
+    this.themeService.set(preference);
   }
 
   protected toggleAutoSync(): void {

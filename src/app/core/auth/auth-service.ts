@@ -46,6 +46,10 @@ export class AuthError extends Error {
 /**
  * Sesión con Google mediante el modelo de token de Google Identity Services.
  *
+ * La sesión se guarda en `localStorage` para que sobreviva a que el sistema
+ * cierre el navegador (en el móvil ocurre a menudo en segundo plano): al
+ * volver se sigue dentro, y solo si el token ya ha caducado hay que reanudarla.
+ *
  * El token de acceso dura una hora y no hay token de refresco: al caducar se
  * pide otro en silencio indicando la cuenta (`login_hint`). Si el navegador
  * bloquea esa petición por no venir de un gesto del usuario, la sesión pasa a
@@ -59,6 +63,7 @@ export class AuthService {
   private readonly session = signal<Session | null>(this.restore());
   private readonly needsResume = signal(this.isExpired(this.session()));
   private renewal: Promise<string> | null = null;
+  private signingIn: Promise<void> | null = null;
   private gis: Promise<GisOauth2> | null = null;
 
   readonly user = computed(() => this.session()?.user ?? null);
@@ -68,8 +73,24 @@ export class AuthService {
   });
   readonly isConfigured = this.clientId !== '';
 
-  /** Inicia o reanuda la sesión. Debe llamarse desde un gesto del usuario. */
-  async signIn(): Promise<void> {
+  /**
+   * Inicia o reanuda la sesión. Debe llamarse desde un gesto del usuario.
+   * Las llamadas simultáneas comparten la petición: solo se abre una ventana.
+   */
+  signIn(): Promise<void> {
+    this.signingIn ??= this.signInOnce().finally(() => (this.signingIn = null));
+    return this.signingIn;
+  }
+
+  /**
+   * Deja cargada la biblioteca de Google para que la ventana de inicio de
+   * sesión se abra al instante, dentro del gesto del usuario.
+   */
+  prepare(): void {
+    if (this.isConfigured) this.loadGis().catch(() => undefined);
+  }
+
+  private async signInOnce(): Promise<void> {
     const hint = this.session()?.user.email ?? this.readHint();
     const response = await this.requestToken(hint ? { prompt: '', login_hint: hint } : {});
     const accessToken = response.access_token as string;
@@ -85,7 +106,7 @@ export class AuthService {
   signOut(): void {
     this.session.set(null);
     this.needsResume.set(false);
-    this.remove(sessionStorage, SESSION_KEY);
+    this.remove(localStorage, SESSION_KEY);
     this.remove(localStorage, HINT_KEY);
   }
 
@@ -98,6 +119,11 @@ export class AuthService {
 
   /** Pide un token nuevo sin interacción. Las llamadas simultáneas comparten petición. */
   renew(): Promise<string> {
+    // Si ya se está reanudando la sesión, se espera a ese token en lugar de pedir otro.
+    const signingIn = this.signingIn;
+    if (signingIn && this.session()) {
+      return signingIn.then(() => (this.session() as Session).accessToken);
+    }
     this.renewal ??= this.renewOnce().finally(() => (this.renewal = null));
     return this.renewal;
   }
@@ -185,13 +211,13 @@ export class AuthService {
   private store(session: Session): void {
     this.session.set(session);
     this.needsResume.set(false);
-    this.write(sessionStorage, SESSION_KEY, JSON.stringify(session));
+    this.write(localStorage, SESSION_KEY, JSON.stringify(session));
     this.write(localStorage, HINT_KEY, session.user.email);
   }
 
   private restore(): Session | null {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
+      const raw = localStorage.getItem(SESSION_KEY);
       const value = raw ? (JSON.parse(raw) as Partial<Session>) : null;
       if (value?.accessToken && typeof value.expiresAt === 'number' && value.user?.email) {
         return value as Session;

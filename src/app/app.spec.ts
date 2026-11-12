@@ -15,6 +15,7 @@ describe('App', () => {
   const user = signal<UserProfile | null>(null);
   const signIn = vi.fn().mockResolvedValue(undefined);
   const signOut = vi.fn();
+  const prepare = vi.fn();
   const online = signal(true);
 
   async function render(repository = new InMemoryInventoryRepository()) {
@@ -23,7 +24,7 @@ describe('App', () => {
       providers: [
         provideRouter([{ path: '**', children: [] }]),
         { provide: InventoryRepository, useValue: repository },
-        { provide: AuthService, useValue: { status, user, signIn, signOut } },
+        { provide: AuthService, useValue: { status, user, signIn, signOut, prepare } },
         { provide: Connectivity, useValue: { online } },
       ],
     }).compileComponents();
@@ -76,11 +77,67 @@ describe('App', () => {
   });
 
   it('ofrece reanudar la sesión cuando ha caducado', async () => {
+    signIn.mockClear();
     status.set('expired');
     user.set(casa);
     const { el } = await render();
+    expect(prepare).toHaveBeenCalled(); // la ventana de Google se abrirá sin demora
     el.querySelector<HTMLButtonElement>('.resume button')?.click();
     expect(signIn).toHaveBeenCalled();
+  });
+
+  it('con la sesión caducada la reanuda el primer toque en cualquier parte', async () => {
+    signIn.mockClear();
+    signIn.mockRejectedValueOnce(new Error('popup_closed'));
+    status.set('expired');
+    user.set(casa);
+    const { el, settle } = await render();
+
+    el.querySelector<HTMLElement>('mat-toolbar')?.click();
+    await settle();
+    expect(signIn).toHaveBeenCalledTimes(1);
+
+    // Si falla no se insiste en cada toque: queda el botón.
+    el.querySelector<HTMLElement>('mat-toolbar')?.click();
+    expect(signIn).toHaveBeenCalledTimes(1);
+    expect(el.querySelector('.resume button')).not.toBeNull();
+  });
+
+  it('con la sesión vigente los toques no piden nada', async () => {
+    signIn.mockClear();
+    status.set('signedIn');
+    user.set(casa);
+    const { el } = await render();
+    el.querySelector<HTMLElement>('mat-toolbar')?.click();
+    expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it('permite forzar el tema desde la cabecera, también sin sesión', async () => {
+    localStorage.clear();
+    status.set('signedOut');
+    user.set(null);
+    const { el, settle } = await render();
+    const button = el.querySelector<HTMLButtonElement>('button.theme');
+    expect(button?.getAttribute('aria-label')).toBe('Tema: automático');
+
+    button?.click();
+    await settle();
+    const options = [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];
+    expect(options.map((o) => o.querySelector('span')?.textContent?.trim())).toEqual([
+      'Automático',
+      'Claro',
+      'Oscuro',
+    ]);
+    expect(options.map((o) => o.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false']);
+
+    options[1].click();
+    await settle();
+
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(localStorage.getItem('inventario.tema')).toBe('light');
+    expect(button?.getAttribute('aria-label')).toBe('Tema: claro');
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.clear();
   });
 
   it('avisa cuando no hay conexión', async () => {

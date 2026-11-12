@@ -4,7 +4,12 @@
   min-height: 100%;
 }
 
+// Cabecera con aspecto de carpeta de archivo: el nombre va en una etiqueta
+// de papel sujeta con un clip.
 mat-toolbar {
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--mat-sys-shadow) 18%, transparent);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -12,8 +17,39 @@ mat-toolbar {
 
 .title {
   color: inherit;
-  flex: 1;
+  margin-right: auto;
+  min-width: 0;
+  padding-left: 6px;
+  position: relative;
   text-decoration: none;
+}
+
+.label {
+  background: var(--mat-sys-surface);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 3px;
+  box-shadow: 1px 1px 0 var(--mat-sys-outline-variant);
+  display: block;
+  font: var(--mat-sys-title-medium);
+  overflow: hidden;
+  padding: 6px 14px 6px 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clip {
+  fill: none;
+  height: 36px;
+  left: 5px;
+  pointer-events: none;
+  position: absolute;
+  stroke: var(--mat-sys-outline);
+  stroke-linecap: round;
+  stroke-width: 1.8;
+  top: -8px;
+  transform: rotate(8deg);
+  width: 22px;
+  z-index: 1;
 }
 
 .loading {

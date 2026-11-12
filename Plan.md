@@ -293,8 +293,11 @@ ngsw-config.json
   demanda y crea el cliente de token
   (`google.accounts.oauth2.initTokenClient`) con el identificador de cliente y
   el permiso `drive.appdata`. Guarda el token de acceso en memoria y en
-  `sessionStorage` (para sobrevivir a una recarga) con su caducidad, y el
-  correo de la cuenta en `localStorage` como pista para el siguiente inicio.
+  `localStorage` con su caducidad, para sobrevivir a una recarga y a que el
+  sistema cierre el navegador en segundo plano (habitual en Android), y el
+  correo de la cuenta como pista para el siguiente inicio. Si al volver el
+  token ya ha caducado, la sesión queda en `expired` y basta «Reanudar
+  sesión».
   Expone `signIn()`, `signOut()`, `validToken()`, `renew()` y las señales
   `status` (`signedOut`, `signedIn`, `expired`) y `user`. Los datos del
   usuario se obtienen de `about.get?fields=user` de Drive, sin pedir más
@@ -307,7 +310,9 @@ ngsw-config.json
   muestre el selector de cuentas) y reintenta una vez; si el navegador
   bloquea la ventana por no haber gesto del usuario, la sesión pasa a
   `expired` y la barra superior muestra un aviso con el botón
-  «Reanudar sesión».
+  «Reanudar sesión». En ese estado el primer toque en cualquier parte de la
+  pantalla ya la reanuda (el gesto permite abrir la ventana de Google, que
+  se cierra sola); se intenta una vez y, si falla, queda el botón.
 - **`DriveApi`**: envoltorio fino de la API REST v3 limitado a
   `appDataFolder` (`files.list` paginado, `files.create`, `files.update`,
   `files.delete`, `changes.getStartPageToken`, `changes.list`). Reintenta con
