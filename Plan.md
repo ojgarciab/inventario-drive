@@ -366,7 +366,7 @@ interface Item      extends BaseEntity { kind: 'item'; quantity: number; }
 | `/buscar` | Búsqueda por nombre, notas y etiquetas; cada resultado muestra su ruta completa |
 | `/sin-ubicar` | Entidades huérfanas o en ciclo |
 | `/papelera` | Restaurar o eliminar definitivamente |
-| `/ajustes` | Tipos de contenedor, exportar/importar copia en JSON, sesión |
+| `/ajustes` | Tipos de contenedor, exportación de datos (JSON) e imágenes (ZIP), importación, sesión |
 
 Pautas de interfaz: una columna, barra inferior de navegación (Inicio, Buscar,
 Ajustes), acciones principales al alcance del pulgar, diálogos a pantalla
@@ -461,8 +461,25 @@ como `/c/abc`.
 | **6. Sincronización** | `SyncService`, aviso de edición obsoleta, estado sin conexión | Un cambio en un dispositivo aparece en el otro en < 30 s |
 | **7. Búsqueda** | Búsqueda global con ruta en resultados | Encontrar un objeto y ver dónde está en dos toques |
 | **8. Fotografías** | Captura, redimensionado, subida, caché | Foto visible en un segundo dispositivo; sin nueva descarga al reabrir |
-| **9. Ajustes** | Tipos configurables, exportar/importar JSON | Añadir tipo «Estantería»; copia de seguridad restaurable |
+| **9. Ajustes** | Tipos configurables; exportación de datos en JSON y de imágenes en ZIP; importación (§7.1) | Añadir tipo «Estantería»; copia de seguridad restaurable, fotos incluidas |
 | **10. Pulido** | Accesibilidad, Lighthouse, iconos, aviso de actualización | Lighthouse PWA/Accesibilidad ≥ 90 |
+
+### 7.1 Exportación (pendiente de implementar)
+
+Hay que implementar en Ajustes un sistema de exportación con dos partes:
+
+- **Datos en JSON**: un único archivo con los tipos de contenedor y todas las
+  entidades (contenedores y objetos, incluida la papelera), con sus campos
+  del modelo de dominio, la jerarquía (`parentId`), la referencia a su foto y
+  una versión de formato para poder importarlo después.
+- **Imágenes en ZIP**: un archivo ZIP con todas las fotografías, nombradas de
+  forma que el JSON permita asociar cada una a su entidad (por ejemplo, por
+  el id de la foto).
+
+A decidir al implementarlo: si el ZIP incluye también el JSON para tener la
+copia completa en un solo archivo; cómo generar el ZIP en el navegador
+(biblioteca o escritura propia sin compresión, ya que los JPEG no comprimen);
+y cómo descargar muchas fotos sin superar los límites por minuto de la API.
 
 Posibles ampliaciones: etiquetas QR para contenedores, lector de QR, inventario
 compartido entre cuentas (`drive.file`), historial de movimientos.
@@ -489,7 +506,7 @@ compartido entre cuentas (`drive.file`), historial de movimientos.
 | Longitud admitida por `description` suficiente para notas | Guardar las notas en el contenido del archivo y cargarlas al abrir la ficha |
 | `files.generateIds` admite `space=appDataFolder` | Crear primero y usar el id devuelto |
 | La renovación silenciosa del token puede requerir gesto del usuario (sobre todo en iOS) | Ya previsto: botón «Reanudar sesión» |
-| Los datos de `appDataFolder` están ligados al proyecto de Google Cloud: si se elimina el proyecto, o el usuario borra los datos ocultos de la aplicación desde la configuración de Drive, se pierden | Exportación a JSON desde Ajustes; no eliminar ni sustituir el proyecto de Cloud |
+| Los datos de `appDataFolder` están ligados al proyecto de Google Cloud: si se elimina el proyecto, o el usuario borra los datos ocultos de la aplicación desde la configuración de Drive, se pierden | Exportación de datos (JSON) e imágenes (ZIP) desde Ajustes; no eliminar ni sustituir el proyecto de Cloud |
 | Dos dispositivos cambian a la vez la foto de la misma entidad: el archivo del que pierde queda sin referencia | Solo ocupa espacio; se puede añadir una limpieza de fotos huérfanas |
 | Cuotas y futura facturación del exceso de la API de Drive (§3.1) | Consumo muy inferior al umbral gratuito; proyecto sin cuenta de facturación; reintentos con espera exponencial; el intervalo de sondeo es configurable |
 

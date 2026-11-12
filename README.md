@@ -244,8 +244,9 @@ compilación de producción.
   pueden eliminar en Drive → *Configuración → Gestionar aplicaciones* →
   *Eliminar datos ocultos de aplicaciones*; esa acción borra el inventario.
 - Para revocar el acceso: <https://myaccount.google.com/permissions>.
-- La aplicación incluirá exportación e importación del inventario en JSON
-  para conservar copias propias.
+- La aplicación incluirá exportación de los datos en JSON y de las
+  fotografías en ZIP, e importación, para conservar copias propias
+  (pendiente; ver el plan).
 
 ## Licencia
 
