@@ -32,7 +32,12 @@
   </p>
   <mat-nav-list>
     @for (row of rows(); track row.entity.id) {
-      <a mat-list-item [routerLink]="link(row.entity)">
+      <a
+        mat-list-item
+        class="entity-row"
+        [class.container-row]="row.entity.kind === 'container'"
+        [routerLink]="link(row.entity)"
+      >
         <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
         <span matListItemTitle>{{ row.entity.name }}</span>
         <span matListItemLine>{{ row.place }}</span>

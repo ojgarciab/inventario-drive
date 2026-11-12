@@ -24,7 +24,7 @@ import { entityLink } from '../../shared/entity-links';
     } @else {
       <mat-list>
         @for (row of rows(); track row.entity.id) {
-          <mat-list-item>
+          <mat-list-item class="entity-row" [class.container-row]="row.entity.kind === 'container'">
             <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
             <a matListItemTitle class="name" [routerLink]="link(row.entity)">{{
               row.entity.name

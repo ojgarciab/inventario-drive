@@ -56,3 +56,24 @@ body {
   --mat-menu-item-icon-color: var(--mat-sys-primary);
   --mat-menu-item-label-text-weight: 700;
 }
+
+// Filas de contenedores y objetos: cada una va en una ficha redondeada y
+// semitransparente para separarse del papel cuadriculado sin taparlo del
+// todo. Las de contenedores son más opacas que las de objetos.
+.entity-row.mat-mdc-list-item {
+  --mat-list-list-item-container-shape: 12px;
+  --mat-list-active-indicator-shape: 12px;
+  --entity-row-opacity: 33%;
+
+  background-color: color-mix(
+    in srgb,
+    var(--mat-sys-surface-container-highest) var(--entity-row-opacity),
+    transparent
+  );
+  border-radius: 12px;
+  margin-bottom: 6px;
+
+  &.container-row {
+    --entity-row-opacity: 66%;
+  }
+}

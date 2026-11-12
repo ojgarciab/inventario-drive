@@ -34,6 +34,7 @@
       @for (row of rows(); track row.container.id) {
         <button
           mat-list-item
+          class="entity-row container-row"
           type="button"
           [disabled]="row.disabled"
           (click)="open(row.container.id)"

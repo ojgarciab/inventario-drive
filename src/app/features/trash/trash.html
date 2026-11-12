@@ -9,7 +9,7 @@
 } @else {
   <mat-list>
     @for (row of rows(); track row.entity.id) {
-      <mat-list-item>
+      <mat-list-item class="entity-row" [class.container-row]="row.entity.kind === 'container'">
         <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
         <span matListItemTitle>{{ row.entity.name }}</span>
         <span matListItemLine>{{ row.detail }}</span>
