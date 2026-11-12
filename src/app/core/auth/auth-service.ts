@@ -46,6 +46,10 @@ export class AuthError extends Error {
 /**
  * Sesión con Google mediante el modelo de token de Google Identity Services.
  *
+ * La sesión se guarda en `localStorage` para que sobreviva a que el sistema
+ * cierre el navegador (en el móvil ocurre a menudo en segundo plano): al
+ * volver se sigue dentro, y solo si el token ya ha caducado hay que reanudarla.
+ *
  * El token de acceso dura una hora y no hay token de refresco: al caducar se
  * pide otro en silencio indicando la cuenta (`login_hint`). Si el navegador
  * bloquea esa petición por no venir de un gesto del usuario, la sesión pasa a
@@ -85,7 +89,7 @@ export class AuthService {
   signOut(): void {
     this.session.set(null);
     this.needsResume.set(false);
-    this.remove(sessionStorage, SESSION_KEY);
+    this.remove(localStorage, SESSION_KEY);
     this.remove(localStorage, HINT_KEY);
   }
 
@@ -185,13 +189,13 @@ export class AuthService {
   private store(session: Session): void {
     this.session.set(session);
     this.needsResume.set(false);
-    this.write(sessionStorage, SESSION_KEY, JSON.stringify(session));
+    this.write(localStorage, SESSION_KEY, JSON.stringify(session));
     this.write(localStorage, HINT_KEY, session.user.email);
   }
 
   private restore(): Session | null {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
+      const raw = localStorage.getItem(SESSION_KEY);
       const value = raw ? (JSON.parse(raw) as Partial<Session>) : null;
       if (value?.accessToken && typeof value.expiresAt === 'number' && value.user?.email) {
         return value as Session;

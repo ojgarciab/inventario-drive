@@ -79,7 +79,7 @@ describe('AuthService', () => {
     expect(auth.status()).toBe('signedIn');
     expect(auth.user()).toEqual({ name: 'Casa', email: 'casa@example.com', photoUrl: null });
     expect(await auth.validToken()).toBe('t1');
-    expect(sessionStorage.getItem('inventario.sesion')).toContain('t1');
+    expect(localStorage.getItem('inventario.sesion')).toContain('t1');
   });
 
   it('recupera la sesión guardada al recargar', async () => {
@@ -133,8 +133,22 @@ describe('AuthService', () => {
     expect(auth.status()).toBe('signedIn');
   });
 
+  it('conserva la sesión aunque el sistema cierre el navegador', async () => {
+    fakeGis([token('t1')]);
+    const first = setup();
+    await signIn(first.auth, first.http);
+
+    // Al cerrarse el navegador se pierde `sessionStorage`, pero no `localStorage`.
+    sessionStorage.clear();
+    TestBed.resetTestingModule();
+    const reopened = setup();
+
+    expect(reopened.auth.status()).toBe('signedIn');
+    expect(await reopened.auth.validToken()).toBe('t1');
+  });
+
   it('marca como caducada una sesión guardada cuyo token ya venció', () => {
-    sessionStorage.setItem(
+    localStorage.setItem(
       'inventario.sesion',
       JSON.stringify({
         accessToken: 'viejo',
@@ -167,7 +181,7 @@ describe('AuthService', () => {
     auth.signOut();
 
     expect(auth.status()).toBe('signedOut');
-    expect(sessionStorage.getItem('inventario.sesion')).toBeNull();
+    expect(localStorage.getItem('inventario.sesion')).toBeNull();
     expect(localStorage.getItem('inventario.cuenta')).toBeNull();
     http.verify(); // ninguna llamada de revocación
   });

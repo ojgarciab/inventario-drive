@@ -293,8 +293,11 @@ ngsw-config.json
   demanda y crea el cliente de token
   (`google.accounts.oauth2.initTokenClient`) con el identificador de cliente y
   el permiso `drive.appdata`. Guarda el token de acceso en memoria y en
-  `sessionStorage` (para sobrevivir a una recarga) con su caducidad, y el
-  correo de la cuenta en `localStorage` como pista para el siguiente inicio.
+  `localStorage` con su caducidad, para sobrevivir a una recarga y a que el
+  sistema cierre el navegador en segundo plano (habitual en Android), y el
+  correo de la cuenta como pista para el siguiente inicio. Si al volver el
+  token ya ha caducado, la sesión queda en `expired` y basta «Reanudar
+  sesión».
   Expone `signIn()`, `signOut()`, `validToken()`, `renew()` y las señales
   `status` (`signedOut`, `signedIn`, `expired`) y `user`. Los datos del
   usuario se obtienen de `about.get?fields=user` de Drive, sin pedir más
