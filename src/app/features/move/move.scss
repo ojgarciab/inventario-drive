@@ -1,0 +1,110 @@
+:host {
+  display: block;
+  padding-bottom: 96px; // hueco para la barra de acciones fija
+}
+
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hint,
+.empty {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hint {
+  margin: 4px 0 12px;
+}
+
+.empty {
+  margin: 24px 0;
+}
+
+nav {
+  margin: 0 -16px;
+  overflow-x: auto;
+  padding: 0 16px;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+
+ol {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li + li::before {
+  color: var(--mat-sys-outline);
+  content: '›';
+  margin-right: 4px;
+}
+
+nav button {
+  background: none;
+  border: 0;
+  color: var(--mat-sys-primary);
+  cursor: pointer;
+  font: var(--mat-sys-body-medium);
+  padding: 8px 0;
+
+  &[aria-current] {
+    color: var(--mat-sys-on-surface);
+    font-weight: 500;
+  }
+}
+
+mat-nav-list {
+  margin: 8px -16px 0;
+
+  // Las filas son botones (cambian el destino mostrado, no navegan): se les
+  // quita el aspecto de botón nativo para que se vean como una lista.
+  button {
+    background: none;
+    border: 0;
+    font: inherit;
+    text-align: start;
+    width: 100%;
+  }
+}
+
+.bar {
+  background: var(--mat-sys-surface-container);
+  bottom: 0;
+  box-sizing: border-box;
+  left: 0;
+  padding: 0 16px calc(12px + env(safe-area-inset-bottom));
+  position: fixed;
+  right: 0;
+  z-index: 1;
+}
+
+.error {
+  color: var(--mat-sys-error);
+  margin: 8px auto 0;
+  max-width: 808px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin: 12px auto 0;
+  max-width: 808px;
+
+  a,
+  button {
+    min-height: 48px;
+  }
+
+  .confirm {
+    max-width: 70%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

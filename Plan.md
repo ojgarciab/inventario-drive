@@ -90,9 +90,15 @@ movimiento es atómico y no entra en conflicto con ediciones de otras entidades.
 
 **Borrar**: los archivos de `appDataFolder` no pasan por la papelera de Drive,
 así que el borrado es lógico (`appProperties.d`); la aplicación ofrece una
-papelera propia y purga definitivamente lo borrado hace más de 30 días. Un
-contenedor solo se puede borrar vacío, o reubicando antes su contenido en el
-contenedor padre.
+papelera propia, con restauración y eliminación definitiva bajo confirmación.
+Al borrar un contenedor con contenido, este pasa antes al contenedor superior
+(se avisa en la confirmación).
+
+Lo que lleva más de 30 días en la papelera se elimina definitivamente al
+cargar el inventario. El plazo se mide con horas de Drive (la modificación
+más reciente del inventario frente a la del elemento borrado), no con el
+reloj del dispositivo, para que un reloj mal puesto no adelante ningún
+borrado; a cambio, la purga puede retrasarse si no hay actividad.
 
 ## 3. Funcionamiento simultáneo desde varios dispositivos
 
@@ -105,23 +111,35 @@ Requisito: mínimo dos dispositivos a la vez, sin caché local de ubicaciones.
    `startPageToken` y se consulta `changes.list` (`spaces=appDataFolder`):
    - cada 20 s mientras la aplicación esté visible;
    - al recuperar el foco, la visibilidad o la conexión;
-   - inmediatamente antes de abrir el diálogo de mover y después de cada
-     escritura propia.
+   - al abrir el selector de destino y los formularios de edición, y antes
+     de guardar una edición;
+   - a petición, con «Actualizar ahora» en el menú de cuenta.
 3. **Escrituras**: siempre `PATCH` parcial sobre un archivo. Dos dispositivos
    que editen entidades distintas no interfieren nunca. Si editan la misma
    entidad, gana la última escritura **por campo** (Drive fusiona
    `appProperties` clave a clave), y el otro dispositivo ve el resultado en el
    siguiente sondeo.
-4. **Detección de edición obsoleta**: el formulario de edición recuerda el
-   `modifiedTime` con el que se abrió; si al guardar ha cambiado, se avisa y se
-   muestran los valores actuales antes de sobrescribir.
+4. **Edición simultánea**: al guardar una edición se consultan antes los
+   cambios y solo se envían los campos que el usuario ha modificado, de modo
+   que lo que otro dispositivo haya cambiado en los demás campos se conserva.
+   Si ambos han cambiado el mismo campo con valores distintos, el formulario
+   se detiene y pregunta qué versión conservar.
 5. **Ciclos**: la interfaz impide mover un contenedor dentro de sí mismo o de
    un descendiente. Dos movimientos simultáneos cruzados podrían aun así crear
    un ciclo; al cargar y tras cada sondeo se valida el árbol y, si hay un
    ciclo o un padre inexistente, la entidad afectada se muestra en
    «Sin ubicar» para que el usuario la recoloque.
 6. **Sin conexión**: la aplicación es solo en línea. Sin red se muestra un
-   aviso y se deshabilita la escritura; no hay cola de cambios pendientes.
+   aviso y las escrituras se rechazan al momento; no hay cola de cambios
+   pendientes.
+7. **Respuestas atrasadas**: una consulta de cambios pedida antes de una
+   escritura propia puede llegar después de ella; nunca se sustituye una
+   versión por otra con `modifiedTime` anterior.
+8. **Sesión caducada**: no se sondea mientras la sesión esté pendiente de
+   reanudar, para no abrir la ventana de Google cada 20 s.
+9. **Recuperación**: tras tres consultas de cambios fallidas seguidas con
+   conexión, se recarga el inventario completo (el punto de sincronización
+   puede haber caducado).
 
 **Cuenta compartida**: `appDataFolder` es privado por cuenta de Google y no se
 puede compartir, así que el inventario se usa con **una cuenta de Gmail común
@@ -275,17 +293,24 @@ ngsw-config.json
   bloquea la ventana por no haber gesto del usuario, la sesión pasa a
   `expired` y la barra superior muestra un aviso con el botón
   «Reanudar sesión».
-- **`DriveApiService`**: envoltorio fino de la API REST v3 (`files.list`,
-  `files.create`, `files.update`, `files.delete`, `files.generateIds`,
-  `files.get?alt=media`, subida `multipart`, `changes.getStartPageToken`,
-  `changes.list`). Reintentos con espera exponencial ante 429/5xx.
-- **`InventoryRepository`** (interfaz) y **`DriveInventoryRepository`**:
-  traducen entre el modelo de dominio y los metadatos de Drive (§2.3). Es la
-  única capa que conoce el formato de almacenamiento.
+- **`DriveApi`**: envoltorio fino de la API REST v3 limitado a
+  `appDataFolder` (`files.list` paginado, `files.create`, `files.update`,
+  `files.delete`, `changes.getStartPageToken`, `changes.list`). Reintenta con
+  espera exponencial los errores 429, 5xx, de red y 403 por límite de cuota.
+  No se usa `files.generateIds`: el id lo devuelve la creación.
+- **`InventoryRepository`** (clase abstracta) y
+  **`DriveInventoryRepository`**: traducen entre el modelo de dominio y los
+  metadatos de Drive (§2.3, en `drive-mapping.ts`). Es la única capa que
+  conoce el formato de almacenamiento y valida los límites de Drive (nombre,
+  notas de 8 000 caracteres, 124 bytes por propiedad).
+  `InMemoryInventoryRepository` la sustituye en las pruebas y en el modo de
+  demostración (`/?demo`, solo en desarrollo).
 - **`InventoryStore`**: estado en memoria con *signals*: mapa de entidades por
   id, índice de hijos por padre, tipos; señales derivadas para ruta
   (*breadcrumb*), contenido de un contenedor, recuento recursivo, resultados
-  de búsqueda y entidades sin ubicar.
+  de búsqueda y entidades sin ubicar. En la primera carga crea los tipos por
+  defecto; cada uno lleva un identificador (`appProperties.s`) para fundir los
+  duplicados si dos dispositivos los crean a la vez.
 - **`SyncService`**: carga inicial, sondeo de cambios (§3) y aplicación de los
   cambios al almacén.
 - **`PhotoService`**: captura (`<input type="file" accept="image/*"

@@ -1,0 +1,33 @@
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0;
+}
+
+.back a {
+  color: var(--mat-sys-primary);
+  display: inline-block;
+  padding: 8px 0;
+  text-decoration: none;
+}
+
+.hint,
+.empty {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hint {
+  margin: 4px 0 8px;
+}
+
+.empty {
+  margin: 24px 0;
+}
+
+mat-list {
+  margin: 0 -16px;
+}
+
+.row-actions {
+  display: flex;
+  margin-right: -8px;
+}

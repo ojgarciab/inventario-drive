@@ -1,0 +1,77 @@
+<app-breadcrumb [path]="path()" />
+
+@if (notFound()) {
+  <p class="empty" role="alert">Este contenedor ya no existe.</p>
+  <a matButton="tonal" routerLink="/">Ir al inicio</a>
+} @else {
+  @if (container(); as c) {
+    <header>
+      <mat-icon aria-hidden="true">{{ type()?.icon ?? 'inventory_2' }}</mat-icon>
+      <div class="heading">
+        <h1>{{ c.name }}</h1>
+        @if (type(); as t) {
+          <span class="type">{{ t.name }}</span>
+        }
+      </div>
+      <app-entity-actions [entity]="c" />
+    </header>
+    @if (c.notes) {
+      <p class="notes">{{ c.notes }}</p>
+    }
+    @if (c.tags.length > 0) {
+      <ul class="tags" aria-label="Etiquetas">
+        @for (tag of c.tags; track tag) {
+          <li>{{ tag }}</li>
+        }
+      </ul>
+    }
+  } @else {
+    <h1>Inicio</h1>
+    @if (unplacedCount() > 0) {
+      <a class="notice" routerLink="/sin-ubicar">
+        <mat-icon aria-hidden="true">warning</mat-icon>
+        <span>
+          {{ unplacedCount() === 1 ? 'Hay 1 elemento' : 'Hay ' + unplacedCount() + ' elementos' }}
+          sin ubicar
+        </span>
+        <mat-icon aria-hidden="true">chevron_right</mat-icon>
+      </a>
+    }
+  }
+
+  @if (rows().length === 0) {
+    <p class="empty">
+      @if (container()) {
+        Este contenedor está vacío.
+      } @else {
+        Todavía no hay nada. Empiece creando un contenedor, por ejemplo su casa.
+      }
+    </p>
+  } @else {
+    <mat-nav-list>
+      @for (row of rows(); track row.entity.id) {
+        <a mat-list-item [routerLink]="link(row.entity)">
+          <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
+          <span matListItemTitle>{{ row.entity.name }}</span>
+          @if (row.detail) {
+            <span matListItemLine>{{ row.detail }}</span>
+          }
+        </a>
+      }
+    </mat-nav-list>
+  }
+
+  <button mat-fab class="add" type="button" aria-label="Añadir" [matMenuTriggerFor]="addMenu">
+    <mat-icon>add</mat-icon>
+  </button>
+  <mat-menu #addMenu="matMenu" yPosition="above" xPosition="before">
+    <a mat-menu-item routerLink="/nuevo/contenedor" [queryParams]="newParams()">
+      <mat-icon>inventory_2</mat-icon>
+      <span>Nuevo contenedor</span>
+    </a>
+    <a mat-menu-item routerLink="/nuevo/objeto" [queryParams]="newParams()">
+      <mat-icon>label</mat-icon>
+      <span>Nuevo objeto</span>
+    </a>
+  </mat-menu>
+}

@@ -11,7 +11,17 @@ mat-toolbar {
 }
 
 .title {
+  color: inherit;
   flex: 1;
+  text-decoration: none;
+}
+
+.loading {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.load-error {
+  color: var(--mat-sys-error);
 }
 
 .account {
@@ -35,6 +45,16 @@ mat-toolbar {
   flex-wrap: wrap;
   gap: 8px 16px;
   justify-content: space-between;
+  padding: 8px 16px;
+}
+
+.offline {
+  align-items: center;
+  background: var(--mat-sys-surface-container-highest);
+  color: var(--mat-sys-on-surface);
+  display: flex;
+  font: var(--mat-sys-body-small);
+  gap: 12px;
   padding: 8px 16px;
 }
 

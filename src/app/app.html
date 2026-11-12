@@ -1,5 +1,5 @@
 <mat-toolbar>
-  <span class="title">Inventario del hogar</span>
+  <a class="title" routerLink="/">Inventario del hogar</a>
   @if (user(); as u) {
     <button matIconButton type="button" aria-label="Cuenta" [matMenuTriggerFor]="accountMenu">
       <mat-icon>account_circle</mat-icon>
@@ -9,6 +9,14 @@
         <strong>{{ u.name }}</strong>
         <span>{{ u.email }}</span>
       </div>
+      <button mat-menu-item type="button" (click)="refresh()">
+        <mat-icon>sync</mat-icon>
+        <span>Actualizar ahora</span>
+      </button>
+      <a mat-menu-item routerLink="/papelera">
+        <mat-icon>delete</mat-icon>
+        <span>Papelera</span>
+      </a>
       <button mat-menu-item type="button" (click)="signOut()">
         <mat-icon>logout</mat-icon>
         <span>Cerrar sesión</span>
@@ -24,6 +32,24 @@
   </div>
 }
 
+@if (!online()) {
+  <div class="offline" role="status">
+    <mat-icon aria-hidden="true">cloud_off</mat-icon>
+    <span>Sin conexión. No se pueden guardar cambios ni ver los de otros dispositivos.</span>
+  </div>
+}
+
+@if (user() && inventory() === 'loading') {
+  <mat-progress-bar mode="indeterminate" aria-label="Cargando el inventario" />
+}
+
 <main>
-  <router-outlet />
+  @if (!user() || inventory() === 'ready') {
+    <router-outlet />
+  } @else if (inventory() === 'error') {
+    <p class="load-error" role="alert">No se ha podido cargar el inventario de Google Drive.</p>
+    <button matButton="tonal" type="button" (click)="load()">Reintentar</button>
+  } @else {
+    <p class="loading">Cargando el inventario…</p>
+  }
 </main>

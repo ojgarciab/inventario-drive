@@ -1,0 +1,75 @@
+@if (entity(); as e) {
+  <h1>Mover «{{ e.name }}»</h1>
+  <p class="hint">Elija el contenedor de destino.</p>
+
+  <nav aria-label="Destino">
+    <ol>
+      <li>
+        <button
+          type="button"
+          [attr.aria-current]="at() === null ? 'true' : null"
+          (click)="open(null)"
+        >
+          Inicio
+        </button>
+      </li>
+      @for (step of path(); track step.id) {
+        <li>
+          <button
+            type="button"
+            [attr.aria-current]="step.id === at() ? 'true' : null"
+            (click)="open(step.id)"
+          >
+            {{ step.name }}
+          </button>
+        </li>
+      }
+    </ol>
+  </nav>
+
+  @if (rows().length === 0) {
+    <p class="empty">No hay más contenedores aquí dentro.</p>
+  } @else {
+    <mat-nav-list>
+      @for (row of rows(); track row.container.id) {
+        <button
+          mat-list-item
+          type="button"
+          [disabled]="row.disabled"
+          (click)="open(row.container.id)"
+        >
+          <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
+          <span matListItemTitle>{{ row.container.name }}</span>
+          @if (row.disabled) {
+            <span matListItemLine>Es lo que está moviendo</span>
+          }
+          <span matListItemMeta><mat-icon aria-hidden="true">chevron_right</mat-icon></span>
+        </button>
+      }
+    </mat-nav-list>
+  }
+
+  <div class="bar">
+    @if (saving()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+    <div class="actions">
+      <a matButton [routerLink]="cancelLink()">Cancelar</a>
+      <button
+        matButton="filled"
+        type="button"
+        class="confirm"
+        [disabled]="isCurrent() || saving()"
+        (click)="confirm()"
+      >
+        {{ isCurrent() ? 'Ya está aquí' : 'Mover a ' + destinationName() }}
+      </button>
+    </div>
+  </div>
+} @else {
+  <p role="alert">Este elemento ya no existe.</p>
+  <a matButton="tonal" routerLink="/">Ir al inicio</a>
+}

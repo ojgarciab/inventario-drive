@@ -46,8 +46,9 @@ Producción: <https://inventario.linaresdigital.com>
 El diseño detallado, la arquitectura y las fases de implementación están en
 [Plan.md](Plan.md).
 
-> **Estado**: fase 2 (inicio de sesión con Google). La aplicación todavía no
-> gestiona el inventario.
+> **Estado**: fase 6 (sincronización entre dispositivos). Ya se pueden crear,
+> editar, mover y eliminar contenedores y objetos, y los cambios de otros
+> dispositivos aparecen solos; faltan la búsqueda y las fotografías.
 
 ## Prueba de concepto (fase 0)
 
@@ -225,6 +226,11 @@ orígenes de JavaScript autorizados del cliente OAuth.
 | `npm test -- --watch=false` | Pruebas unitarias (Vitest) |
 | `npm run lint` | ESLint |
 | `npm run build` | Compilación de producción en `dist/inventario-drive/browser` |
+
+Para probar la interfaz sin cuenta de Google, abra
+<http://localhost:4200/?demo>: carga un inventario de ejemplo en memoria que
+se pierde al recargar. Solo existe en el servidor de desarrollo; «Cerrar
+sesión» sale de ese modo.
 
 Todas ejecutan antes `scripts/set-env.mjs`, que genera
 `src/environments/environment.ts` (no versionado) a partir de `.env` o de la

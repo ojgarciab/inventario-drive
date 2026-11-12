@@ -1,0 +1,73 @@
+<app-breadcrumb [path]="path()" />
+
+@if (notFound()) {
+  <p role="alert">Este elemento ya no existe.</p>
+  <a matButton="tonal" routerLink="/">Ir al inicio</a>
+} @else {
+  <h1>{{ title() }}</h1>
+
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Nombre</mat-label>
+      <input matInput formControlName="name" autocomplete="off" [maxlength]="nameMax" />
+      @if (form.controls.name.invalid) {
+        <mat-error>Escriba un nombre.</mat-error>
+      }
+    </mat-form-field>
+
+    @if (kind() === 'container') {
+      <mat-form-field appearance="outline">
+        <mat-label>Tipo</mat-label>
+        <mat-select formControlName="typeId">
+          <mat-option [value]="null">Sin tipo</mat-option>
+          @for (type of types(); track type.id) {
+            <mat-option [value]="type.id">{{ type.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    } @else {
+      <mat-form-field appearance="outline">
+        <mat-label>Cantidad</mat-label>
+        <input matInput formControlName="quantity" type="number" inputmode="numeric" min="1" />
+        @if (form.controls.quantity.invalid) {
+          <mat-error>Indique un número entero mayor que cero.</mat-error>
+        }
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Notas</mat-label>
+      <textarea matInput formControlName="notes" rows="4" [maxlength]="notesMax"></textarea>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Etiquetas</mat-label>
+      <input matInput formControlName="tags" autocomplete="off" />
+      <mat-hint>Separadas por comas</mat-hint>
+    </mat-form-field>
+
+    @if (conflict(); as fields) {
+      <div class="conflict" role="alert">
+        <p>
+          Otro dispositivo ha cambiado {{ fields }} mientras usted editaba. ¿Qué versión quiere
+          conservar?
+        </p>
+        <div class="conflict-actions">
+          <button matButton type="button" (click)="useCurrent()">La del otro dispositivo</button>
+          <button matButton="tonal" type="button" (click)="save(true)">La mía</button>
+        </div>
+      </div>
+    }
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+    @if (saving()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    <div class="actions">
+      <a matButton [routerLink]="cancelLink()">Cancelar</a>
+      <button matButton="filled" type="submit" [disabled]="saving()">Guardar</button>
+    </div>
+  </form>
+}

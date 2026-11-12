@@ -1,0 +1,39 @@
+<nav class="back"><a routerLink="/">‹ Inicio</a></nav>
+<h1>Papelera</h1>
+<p class="hint">
+  Lo que lleva aquí más de {{ retentionDays }} días se elimina definitivamente de forma automática.
+</p>
+
+@if (rows().length === 0) {
+  <p class="empty">La papelera está vacía.</p>
+} @else {
+  <mat-list>
+    @for (row of rows(); track row.entity.id) {
+      <mat-list-item>
+        <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
+        <span matListItemTitle>{{ row.entity.name }}</span>
+        <span matListItemLine>{{ row.detail }}</span>
+        <span matListItemMeta class="row-actions">
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'Restaurar ' + row.entity.name"
+            [disabled]="busy() === row.entity.id"
+            (click)="restore(row.entity)"
+          >
+            <mat-icon>restore_from_trash</mat-icon>
+          </button>
+          <button
+            matIconButton
+            type="button"
+            [attr.aria-label]="'Eliminar definitivamente ' + row.entity.name"
+            [disabled]="busy() === row.entity.id"
+            (click)="purge(row.entity)"
+          >
+            <mat-icon>delete_forever</mat-icon>
+          </button>
+        </span>
+      </mat-list-item>
+    }
+  </mat-list>
+}
