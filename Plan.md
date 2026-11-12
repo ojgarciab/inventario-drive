@@ -256,18 +256,24 @@ ngsw-config.json
 
 ### 5.3 Servicios
 
-- **`AuthService`**: carga `https://accounts.google.com/gsi/client`, crea el
-  cliente de token (`google.accounts.oauth2.initTokenClient`) con el
-  identificador de cliente y el permiso `drive.appdata`. Guarda el token de
-  acceso en memoria y en `sessionStorage` (para sobrevivir a una recarga) con
-  su caducidad. Expone `signIn()`, `signOut()` (revoca el token) y la señal
-  `session`. Los datos del usuario (nombre, correo, foto) se obtienen de
-  `about.get?fields=user` de Drive, sin pedir más permisos.
+- **`AuthService`**: carga `https://accounts.google.com/gsi/client` bajo
+  demanda y crea el cliente de token
+  (`google.accounts.oauth2.initTokenClient`) con el identificador de cliente y
+  el permiso `drive.appdata`. Guarda el token de acceso en memoria y en
+  `sessionStorage` (para sobrevivir a una recarga) con su caducidad, y el
+  correo de la cuenta en `localStorage` como pista para el siguiente inicio.
+  Expone `signIn()`, `signOut()`, `validToken()`, `renew()` y las señales
+  `status` (`signedOut`, `signedIn`, `expired`) y `user`. Los datos del
+  usuario se obtienen de `about.get?fields=user` de Drive, sin pedir más
+  permisos. **`signOut()` no revoca el permiso en Google**: la cuenta es
+  compartida y revocarlo invalidaría la sesión de los demás dispositivos;
+  solo borra la sesión local.
 - **`authInterceptor`**: añade `Authorization: Bearer …` a las llamadas a
   `googleapis.com`. Ante un 401 intenta una renovación silenciosa
   (`requestAccessToken({prompt: '', login_hint: correo})`, para que Google no
   muestre el selector de cuentas) y reintenta una vez; si el navegador
-  bloquea la ventana por no haber gesto del usuario, muestra un botón
+  bloquea la ventana por no haber gesto del usuario, la sesión pasa a
+  `expired` y la barra superior muestra un aviso con el botón
   «Reanudar sesión».
 - **`DriveApiService`**: envoltorio fino de la API REST v3 (`files.list`,
   `files.create`, `files.update`, `files.delete`, `files.generateIds`,
@@ -338,11 +344,14 @@ imprimir etiquetas con código QR para las cajas.
 - `ngsw-config.json`: precarga del *app shell* y recursos estáticos. **No** se
   declaran `dataGroups` para `googleapis.com`: las respuestas de Drive nunca se
   sirven desde caché.
-- Política de seguridad de contenido (meta CSP): `script-src 'self'
-  https://accounts.google.com/gsi/client`; `connect-src 'self'
-  https://www.googleapis.com https://accounts.google.com`; `frame-src
+- Política de seguridad de contenido (meta CSP en `src/index.html`):
+  `script-src 'self' https://accounts.google.com/gsi/client`; `connect-src
+  'self' https://www.googleapis.com https://accounts.google.com`; `frame-src
   https://accounts.google.com`; `img-src 'self' blob: data:
-  https://*.googleusercontent.com`.
+  https://*.googleusercontent.com`; estilos y fuentes de Google Fonts. La
+  compilación de producción desactiva el CSS crítico en línea
+  (`inlineCritical: false`) porque usa un manejador `onload` que la política
+  bloquearía.
 
 ## 6. Configuración y despliegue
 

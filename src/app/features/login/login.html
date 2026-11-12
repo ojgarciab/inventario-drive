@@ -1,0 +1,23 @@
+<mat-card appearance="outlined">
+  @if (busy()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+  <mat-card-header>
+    <mat-card-title>Inicie sesión</mat-card-title>
+    <mat-card-subtitle>Use la cuenta de Google compartida de la casa</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <p>
+      El inventario se guarda en un espacio privado del Google Drive de esa cuenta. La aplicación
+      solo pide permiso para ese espacio: no puede ver ni modificar el resto de sus archivos.
+    </p>
+    @if (error(); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
+  </mat-card-content>
+  <mat-card-actions>
+    <button matButton="filled" type="button" [disabled]="busy()" (click)="signIn()">
+      Iniciar sesión con Google
+    </button>
+  </mat-card-actions>
+</mat-card>

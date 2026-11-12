@@ -1,9 +1,8 @@
 import { Component, inject } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
-import { SwUpdate } from '@angular/service-worker';
-import { environment } from '../../../environments/environment';
+import { AuthService } from '../../core/auth/auth-service';
 
-/** Pantalla provisional de la fase 1: muestra el estado del esqueleto. */
+/** Pantalla provisional: confirma la sesión hasta que exista el inventario (fase 4). */
 @Component({
   imports: [MatCardModule],
   selector: 'app-home',
@@ -11,6 +10,5 @@ import { environment } from '../../../environments/environment';
   templateUrl: './home.html',
 })
 export class Home {
-  protected readonly clienteConfigurado = environment.googleClientId !== '';
-  protected readonly serviceWorkerActivo = inject(SwUpdate, { optional: true })?.isEnabled ?? false;
+  protected readonly user = inject(AuthService).user;
 }

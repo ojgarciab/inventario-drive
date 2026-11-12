@@ -46,8 +46,8 @@ Producción: <https://inventario.linaresdigital.com>
 El diseño detallado, la arquitectura y las fases de implementación están en
 [Plan.md](Plan.md).
 
-> **Estado**: fase 1 (esqueleto instalable). La aplicación todavía no gestiona
-> el inventario.
+> **Estado**: fase 2 (inicio de sesión con Google). La aplicación todavía no
+> gestiona el inventario.
 
 ## Prueba de concepto (fase 0)
 

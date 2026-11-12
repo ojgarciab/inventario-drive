@@ -1,6 +1,29 @@
-<mat-toolbar color="primary">
-  <span>Inventario del hogar</span>
+<mat-toolbar>
+  <span class="title">Inventario del hogar</span>
+  @if (user(); as u) {
+    <button matIconButton type="button" aria-label="Cuenta" [matMenuTriggerFor]="accountMenu">
+      <mat-icon>account_circle</mat-icon>
+    </button>
+    <mat-menu #accountMenu="matMenu">
+      <div class="account">
+        <strong>{{ u.name }}</strong>
+        <span>{{ u.email }}</span>
+      </div>
+      <button mat-menu-item type="button" (click)="signOut()">
+        <mat-icon>logout</mat-icon>
+        <span>Cerrar sesión</span>
+      </button>
+    </mat-menu>
+  }
 </mat-toolbar>
+
+@if (status() === 'expired') {
+  <div class="resume" role="alert">
+    <span>{{ resumeError() ?? 'La sesión ha caducado.' }}</span>
+    <button matButton="tonal" type="button" (click)="resume()">Reanudar sesión</button>
+  </div>
+}
+
 <main>
   <router-outlet />
 </main>

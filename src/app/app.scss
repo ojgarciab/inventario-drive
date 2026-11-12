@@ -10,6 +10,34 @@ mat-toolbar {
   z-index: 2;
 }
 
+.title {
+  flex: 1;
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 16px 12px;
+
+  span {
+    color: var(--mat-sys-on-surface-variant);
+    font: var(--mat-sys-body-small);
+    overflow-wrap: anywhere;
+  }
+}
+
+.resume {
+  align-items: center;
+  background: var(--mat-sys-error-container);
+  color: var(--mat-sys-on-error-container);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
+
 main {
   box-sizing: border-box;
   flex: 1;
