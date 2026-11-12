@@ -59,7 +59,7 @@ nav button {
 }
 
 mat-nav-list {
-  margin: 8px -16px 0;
+  margin-top: 8px;
 
   // Las filas son botones (cambian el destino mostrado, no navegan): se les
   // quita el aspecto de botón nativo para que se vean como una lista.
