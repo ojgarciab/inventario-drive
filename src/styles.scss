@@ -82,3 +82,22 @@ body {
     --entity-row-opacity: 66%;
   }
 }
+
+// Miniatura al final de una fila: Material alinea ese hueco como texto (con
+// un puntal de línea base y pegado arriba en las filas de dos líneas); una
+// imagen va centrada y sin puntal.
+// (El selector se repite para ganar a las reglas de Material por especificidad.)
+.mat-mdc-list-item.mdc-list-item.mdc-list-item
+  app-entity-thumb.mdc-list-item__end.mat-mdc-list-item-meta {
+  align-self: center;
+  margin-block: 0;
+
+  &::before {
+    display: none;
+  }
+
+  // Sin foto no ocupa sitio.
+  &.empty {
+    display: none;
+  }
+}

@@ -16,6 +16,7 @@ import { Router, RouterLink } from '@angular/router';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { Entity } from '../../core/inventory/models';
 import { entityLink } from '../../shared/entity-links';
+import { EntityThumb } from '../../shared/entity-thumb';
 
 /** Resultados que se muestran como máximo; con más, conviene afinar la búsqueda. */
 const MAX_RESULTS = 100;
@@ -23,6 +24,7 @@ const MAX_RESULTS = 100;
 /** Búsqueda en todo el inventario; cada resultado indica dónde está. */
 @Component({
   imports: [
+    EntityThumb,
     MatButtonModule,
     MatFormFieldModule,
     MatIconModule,

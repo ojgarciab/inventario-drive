@@ -86,8 +86,10 @@ ellas es la **destacada**, a la que la entidad apunta con `appProperties.f`:
 es la que se ve en grande al abrir la ficha y la que representará a la
 entidad en miniatura cuando las listas muestren fotos. Si `f` falta o apunta
 a una foto que ya no existe, la destacada es la primera de la galería. Los
-archivos son inmutables. No se generan miniaturas: por ahora las listas no
-muestran fotos, solo las fichas.
+archivos son inmutables. No se generan archivos de miniatura: las listas
+muestran a la derecha de cada fila la propia foto destacada en pequeño, que
+se descarga solo cuando la fila llega a verse y queda en la caché del
+dispositivo.
 
 Los **tipos de contenedor** (`k = t`) llevan nombre, icono (`appProperties.i`)
 y orden (`appProperties.o`). En el primer arranque se crean los tipos por

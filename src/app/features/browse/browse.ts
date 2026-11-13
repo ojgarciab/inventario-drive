@@ -10,6 +10,7 @@ import { usePageTitle } from '../../core/pwa/page-title';
 import { Breadcrumb } from '../../shared/breadcrumb';
 import { EntityActions } from '../../shared/entity-actions';
 import { EntityPhoto } from '../../shared/entity-photo';
+import { EntityThumb } from '../../shared/entity-thumb';
 import { entityLink } from '../../shared/entity-links';
 
 interface Row {
@@ -58,6 +59,7 @@ const FEATURES: readonly { icon: string; title: string; text: string }[] = [
     Breadcrumb,
     EntityActions,
     EntityPhoto,
+    EntityThumb,
     MatButtonModule,
     MatIconModule,
     MatListModule,

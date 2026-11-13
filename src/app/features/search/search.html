@@ -41,6 +41,7 @@
         <mat-icon matListItemIcon aria-hidden="true">{{ row.icon }}</mat-icon>
         <span matListItemTitle>{{ row.entity.name }}</span>
         <span matListItemLine>{{ row.place }}</span>
+        <app-entity-thumb matListItemMeta [entityId]="row.entity.id" />
       </a>
     }
   </mat-nav-list>

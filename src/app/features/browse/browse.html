@@ -68,6 +68,7 @@
             @if (row.detail) {
               <span matListItemLine>{{ row.detail }}</span>
             }
+            <app-entity-thumb matListItemMeta [entityId]="row.entity.id" />
           </a>
         }
       </mat-nav-list>
