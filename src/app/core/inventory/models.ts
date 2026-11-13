@@ -44,6 +44,11 @@ export interface Photo {
   /** Entidad a la que pertenece. */
   entityId: EntityId;
   createdAt: string;
+  /**
+   * Giro con el que debe mostrarse, en cuartos de vuelta a la derecha (0–3).
+   * El archivo de la imagen no se toca: el giro es solo un metadato.
+   */
+  rotation: number;
 }
 
 export interface ContainerDraft {

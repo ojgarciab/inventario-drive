@@ -7,6 +7,7 @@ import {
   fileToPhoto,
   fileToType,
   itemToFile,
+  photoRotationPatch,
   photoToFile,
   typeChangesToPatch,
   typeToFile,
@@ -87,10 +88,12 @@ export class DriveInventoryRepository extends InventoryRepository {
     return this.api.delete(id);
   }
 
-  async uploadPhoto(entityId: EntityId, image: Blob): Promise<Photo> {
-    const photo = fileToPhoto(await this.api.upload(photoToFile(entityId), image));
-    if (!photo) throw new InventoryError('not_found');
-    return photo;
+  async uploadPhoto(entityId: EntityId, image: Blob, rotation = 0): Promise<Photo> {
+    return asPhoto(await this.api.upload(photoToFile(entityId, rotation), image));
+  }
+
+  async rotatePhoto(photoId: EntityId, rotation: number): Promise<Photo> {
+    return asPhoto(await this.api.update(photoId, photoRotationPatch(rotation)));
   }
 
   downloadPhoto(photoId: EntityId): Promise<Blob> {
@@ -119,6 +122,12 @@ function classify(
   }
   const photo = fileToPhoto(file);
   if (photo) into.photos.push(photo);
+}
+
+function asPhoto(file: DriveFile): Photo {
+  const photo = fileToPhoto(file);
+  if (!photo) throw new InventoryError('not_found');
+  return photo;
 }
 
 function asEntity(file: DriveFile): Entity {

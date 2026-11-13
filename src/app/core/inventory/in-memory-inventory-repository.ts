@@ -1,4 +1,4 @@
-import { containerToFile, itemToFile, typeToFile } from './drive-mapping';
+import { cleanRotation, containerToFile, itemToFile, typeToFile } from './drive-mapping';
 import { InventoryRepository } from './inventory-repository';
 import {
   Container,
@@ -135,14 +135,24 @@ export class InMemoryInventoryRepository extends InventoryRepository {
     this.record(id);
   }
 
-  async uploadPhoto(entityId: EntityId, image: Blob): Promise<Photo> {
+  async uploadPhoto(entityId: EntityId, image: Blob, rotation = 0): Promise<Photo> {
     const photo: Photo = {
       id: `mem-${this.nextId++}`,
       entityId,
       createdAt: new Date().toISOString(),
+      rotation: cleanRotation(rotation),
     };
     this.photos.set(photo.id, { photo, image });
     this.record(photo.id);
+    return photo;
+  }
+
+  async rotatePhoto(photoId: EntityId, rotation: number): Promise<Photo> {
+    const stored = this.photos.get(photoId);
+    if (!stored) throw new InventoryError('not_found');
+    const photo = { ...stored.photo, rotation: cleanRotation(rotation) };
+    this.photos.set(photoId, { ...stored, photo });
+    this.record(photoId);
     return photo;
   }
 

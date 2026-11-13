@@ -20,7 +20,10 @@ describe('EntityPhoto', () => {
   async function setup() {
     const app = await setupApp();
     const photos = TestBed.inject(PhotoService);
-    vi.spyOn(photos, 'objectUrl').mockImplementation(async (id) => `blob:${id}`);
+    // La dirección incluye el giro para poder comprobar qué versión se muestra.
+    vi.spyOn(photos, 'objectUrl').mockImplementation(async (id, rotation = 0) =>
+      rotation ? `blob:${id}@${rotation}` : `blob:${id}`,
+    );
     // Como el servicio real, pero sin reducir la imagen ni tocar la caché.
     vi.spyOn(photos, 'attach').mockImplementation(async (entityId, image) => {
       const added = await app.repository.uploadPhoto(entityId, image);
@@ -29,6 +32,14 @@ describe('EntityPhoto', () => {
       }
       app.store.photoAdded(added);
       return added;
+    });
+    // Como el servicio real: solo cambia el giro anotado en la foto.
+    vi.spyOn(photos, 'rotate').mockImplementation(async (entityId, photoId, turns) => {
+      const current = app.store.photosOf(entityId).find((p) => p.id === photoId);
+      if (!current) throw new Error('no existe');
+      const rotated = await app.repository.rotatePhoto(photoId, current.rotation + turns);
+      app.store.photoAdded(rotated);
+      return rotated;
     });
     vi.spyOn(photos, 'remove');
     vi.spyOn(photos, 'feature');
@@ -97,6 +108,149 @@ describe('EntityPhoto', () => {
     await settle();
     expect(frame?.classList.contains('expanded')).toBe(true);
     expect(frame?.getAttribute('aria-label')).toBe('Reducir la foto');
+  });
+
+  describe('lupa', () => {
+    const frame = (el: HTMLElement) => el.querySelector<HTMLButtonElement>('button.frame');
+    const level = (el: HTMLElement) =>
+      el.querySelector('.tools .level')?.textContent?.replace(/\s+/g, ' ').trim();
+    const button = (el: HTMLElement, name: string) =>
+      el.querySelector<HTMLButtonElement>(`.tools [aria-label="${name}"]`);
+
+    async function opened() {
+      const app = await setup();
+      const item = await app.store.addItem({ name: 'Taladro' });
+      await app.addPhotos(item.id, 2);
+      const el = await app.open(`/o/${item.id}`);
+      await app.settle();
+      return { ...app, el, item };
+    }
+
+    it('empieza al 100 % con «alejar» desactivado', async () => {
+      const { el } = await opened();
+      expect(level(el)).toBe('100 %');
+      expect(button(el, 'Alejar')?.disabled).toBe(true);
+      expect(button(el, 'Acercar')?.disabled).toBe(false);
+      expect(el.querySelector('.viewer')?.classList.contains('zoomed')).toBe(false);
+    });
+
+    it('acerca por pasos, mostrando la foto entera y más ancha que su marco', async () => {
+      const { el, settle } = await opened();
+
+      button(el, 'Acercar')?.click();
+      await settle();
+      expect(level(el)).toBe('150 %');
+      expect(frame(el)?.style.width).toBe('150%');
+      expect(frame(el)?.classList.contains('expanded')).toBe(true);
+      expect(el.querySelector('.viewer')?.classList.contains('zoomed')).toBe(true);
+
+      button(el, 'Acercar')?.click();
+      await settle();
+      expect(level(el)).toBe('200 %');
+      expect(frame(el)?.style.width).toBe('200%');
+    });
+
+    it('tiene un máximo y se puede volver a alejar hasta el tamaño normal', async () => {
+      const { el, settle } = await opened();
+      for (let i = 0; i < 6; i++) button(el, 'Acercar')?.click();
+      await settle();
+      expect(level(el)).toBe('400 %');
+      expect(button(el, 'Acercar')?.disabled).toBe(true);
+
+      for (let i = 0; i < 6; i++) button(el, 'Alejar')?.click();
+      await settle();
+      expect(level(el)).toBe('100 %');
+      expect(frame(el)?.style.width).toBe('');
+      expect(button(el, 'Alejar')?.disabled).toBe(true);
+    });
+
+    it('pulsar la foto acercada quita la ampliación', async () => {
+      const { el, settle } = await opened();
+      button(el, 'Acercar')?.click();
+      await settle();
+      expect(frame(el)?.getAttribute('aria-label')).toBe('Quitar la ampliación');
+
+      frame(el)?.click();
+      await settle();
+      expect(level(el)).toBe('100 %');
+    });
+
+    it('al pasar a otra foto de la galería vuelve al tamaño normal', async () => {
+      const { el, settle } = await opened();
+      button(el, 'Acercar')?.click();
+      await settle();
+
+      thumbs(el)[1].click();
+      await settle();
+
+      expect(level(el)).toBe('100 %');
+      expect(frame(el)?.classList.contains('expanded')).toBe(false);
+    });
+  });
+
+  describe('girar', () => {
+    it('gira a la derecha la foto que se está viendo y muestra su nueva versión', async () => {
+      const { open, settle, until, store, photos, addPhotos } = await setup();
+      const item = await store.addItem({ name: 'Taladro' });
+      const [first, second] = await addPhotos(item.id, 2);
+      const el = await open(`/o/${item.id}`);
+      await settle();
+      thumbs(el)[1].click();
+      await settle();
+
+      clickOn('.tools [aria-label="Girar a la derecha"]');
+      await until(() => mainSrc(el) === `blob:${second}@1`);
+
+      expect(photos.rotate).toHaveBeenCalledWith(item.id, second, 1);
+      // Sigue siendo la misma foto, en su sitio, y la miniatura también se gira.
+      expect(store.photosOf(item.id).map((p) => p.id)).toEqual([first, second]);
+      expect(thumbs(el)[1].querySelector('img')?.getAttribute('src')).toBe(`blob:${second}@1`);
+      expect(thumbs(el)[0].querySelector('img')?.getAttribute('src')).toBe(`blob:${first}`);
+    });
+
+    it('gira a la izquierda, y dos giros seguidos se acumulan', async () => {
+      const { open, settle, until, store, photos, addPhotos } = await setup();
+      const item = await store.addItem({ name: 'Taladro' });
+      const [only] = await addPhotos(item.id, 1);
+      const el = await open(`/o/${item.id}`);
+      await settle();
+
+      clickOn('.tools [aria-label="Girar a la izquierda"]');
+      await until(() => mainSrc(el) === `blob:${only}@3`);
+      clickOn('.tools [aria-label="Girar a la izquierda"]');
+      await until(() => mainSrc(el) === `blob:${only}@2`);
+
+      expect(photos.rotate).toHaveBeenLastCalledWith(item.id, only, -1);
+      expect(store.featuredPhotoId(item.id)).toBe(only);
+    });
+
+    it('muestra girada la foto que ha girado otro dispositivo', async () => {
+      const { open, settle, until, store, repository, addPhotos } = await setup();
+      const item = await store.addItem({ name: 'Taladro' });
+      const [only] = await addPhotos(item.id, 1);
+      const el = await open(`/o/${item.id}`);
+      await settle();
+
+      await repository.rotatePhoto(only, 1);
+      await store.refresh();
+
+      await until(() => mainSrc(el) === `blob:${only}@1`);
+    });
+
+    it('avisa si no se puede girar y deja la foto como estaba', async () => {
+      const { open, settle, until, store, photos, addPhotos } = await setup();
+      const item = await store.addItem({ name: 'Taladro' });
+      const [only] = await addPhotos(item.id, 1);
+      vi.mocked(photos.rotate).mockRejectedValueOnce(new Error('sin red'));
+      const el = await open(`/o/${item.id}`);
+      await settle();
+
+      clickOn('.tools [aria-label="Girar a la derecha"]');
+      await until(() => document.querySelector('mat-snack-bar-container') !== null);
+
+      expect(mainSrc(el)).toBe(`blob:${only}`);
+      expect(store.photosOf(item.id)[0].rotation).toBe(0);
+    });
   });
 
   it('actualiza la foto si la cambia otro dispositivo', async () => {

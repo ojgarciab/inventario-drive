@@ -3,7 +3,8 @@ import { InventoryRepository } from '../inventory/inventory-repository';
 import { InventoryStore } from '../inventory/inventory-store';
 import { EntityId, InventoryError, Photo } from '../inventory/models';
 import { Connectivity } from '../pwa/connectivity';
-import { IMAGE_RESIZER } from './image-resizer';
+import { cleanRotation } from '../inventory/drive-mapping';
+import { IMAGE_RESIZER, IMAGE_ROTATOR } from './image-resizer';
 
 const CACHE_NAME = 'inventario-fotos';
 const cacheKey = (photoId: EntityId) => `/__fotos__/${encodeURIComponent(photoId)}`;
@@ -21,25 +22,32 @@ export class PhotoService {
   private readonly store = inject(InventoryStore);
   private readonly connectivity = inject(Connectivity);
   private readonly resize = inject(IMAGE_RESIZER);
+  private readonly rotateImage = inject(IMAGE_ROTATOR);
 
-  /** Direcciones locales de las fotos ya cargadas en esta sesión. */
-  private readonly urls = new Map<EntityId, Promise<string>>();
+  /** Direcciones locales de las fotos ya cargadas en esta sesión, por foto y giro. */
+  private readonly urls = new Map<string, Promise<string>>();
 
-  /** Dirección local (`blob:`) con la que mostrar la foto. */
-  objectUrl(photoId: EntityId): Promise<string> {
-    let url = this.urls.get(photoId);
+  /** Dirección local (`blob:`) con la que mostrar la foto, con su giro aplicado. */
+  objectUrl(photoId: EntityId, rotation = 0): Promise<string> {
+    const key = urlKey(photoId, rotation);
+    let url = this.urls.get(key);
     if (!url) {
-      url = this.load(photoId).then((image) => URL.createObjectURL(image));
+      url = this.blob(photoId, rotation).then((image) => URL.createObjectURL(image));
       // Un fallo no se recuerda: se podrá reintentar.
-      url.catch(() => this.urls.delete(photoId));
-      this.urls.set(photoId, url);
+      url.catch(() => this.urls.delete(key));
+      this.urls.set(key, url);
     }
     return url;
   }
 
-  /** Contenido de la foto, de la caché del dispositivo o descargado. */
-  blob(photoId: EntityId): Promise<Blob> {
-    return this.load(photoId);
+  /**
+   * Contenido de la foto, de la caché del dispositivo o descargado. Con giro,
+   * devuelve una versión girada generada en el dispositivo; el archivo
+   * guardado no cambia.
+   */
+  async blob(photoId: EntityId, rotation = 0): Promise<Blob> {
+    const image = await this.load(photoId);
+    return cleanRotation(rotation) === 0 ? image : this.rotateImage(image, rotation);
   }
 
   /** Añade una foto a la galería de la entidad. La primera queda como destacada. */
@@ -85,6 +93,22 @@ export class PhotoService {
     await this.store.update(entityId, { photoId });
   }
 
+  /**
+   * Gira una foto en pasos de 90° (positivos a la derecha). Solo cambia el
+   * giro anotado en los metadatos del archivo de Drive: la imagen no se
+   * vuelve a subir ni a comprimir, y la foto conserva su sitio en la galería.
+   */
+  async rotate(entityId: EntityId, photoId: EntityId, quarterTurns: number): Promise<Photo> {
+    const current = this.store.photosOf(entityId).find((photo) => photo.id === photoId);
+    if (!current) throw new InventoryError('not_found');
+    const rotation = cleanRotation(current.rotation + quarterTurns);
+    if (rotation === current.rotation) return current;
+    this.assertOnline();
+    const photo = await this.repository.rotatePhoto(photoId, rotation);
+    this.store.photoAdded(photo);
+    return photo;
+  }
+
   /** Borra una foto de la galería. Si era la destacada, pasa a serlo la siguiente. */
   async remove(entityId: EntityId, photoId: EntityId): Promise<void> {
     const gallery = this.store.photosOf(entityId);
@@ -121,14 +145,17 @@ export class PhotoService {
 
   /** Deja disponible una foto recién subida sin tener que descargarla. */
   private async remember(photoId: EntityId, image: Blob): Promise<void> {
-    this.urls.set(photoId, Promise.resolve(URL.createObjectURL(image)));
+    this.urls.set(urlKey(photoId, 0), Promise.resolve(URL.createObjectURL(image)));
     await this.writeCache(photoId, image);
   }
 
   /** Borra una foto que ya no usa ninguna entidad. Si falla, solo ocupa espacio. */
   private async discard(photoId: EntityId): Promise<void> {
-    this.urls.get(photoId)?.then(URL.revokeObjectURL, () => undefined);
-    this.urls.delete(photoId);
+    for (let rotation = 0; rotation < 4; rotation++) {
+      const key = urlKey(photoId, rotation);
+      this.urls.get(key)?.then(URL.revokeObjectURL, () => undefined);
+      this.urls.delete(key);
+    }
     try {
       await (await caches.open(CACHE_NAME)).delete(cacheKey(photoId));
     } catch {
@@ -158,3 +185,5 @@ export class PhotoService {
     if (!this.connectivity.online()) throw new InventoryError('offline');
   }
 }
+
+const urlKey = (photoId: EntityId, rotation: number) => `${photoId}@${cleanRotation(rotation)}`;

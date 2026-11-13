@@ -1,4 +1,5 @@
 import { InjectionToken } from '@angular/core';
+import { cleanRotation } from '../inventory/drive-mapping';
 
 /** Lado mayor máximo de las fotografías guardadas, en píxeles. */
 export const PHOTO_MAX_SIDE = 1600;
@@ -37,6 +38,46 @@ async function resizeImage(image: Blob): Promise<Blob> {
         (blob) => (blob ? resolve(blob) : reject(new Error('No se pudo codificar la imagen'))),
         'image/jpeg',
         JPEG_QUALITY,
+      ),
+    );
+  } finally {
+    bitmap.close();
+  }
+}
+
+/**
+ * Calidad de la versión girada que se genera para mostrar o exportar. El
+ * archivo guardado en Drive es siempre el original, así que girar varias
+ * veces no acumula pérdida.
+ */
+const ROTATED_JPEG_QUALITY = 0.92;
+
+/** Gira una imagen en pasos de 90°: positivos a la derecha, negativos a la izquierda. */
+export type ImageRotator = (image: Blob, quarterTurns: number) => Promise<Blob>;
+
+export const IMAGE_ROTATOR = new InjectionToken<ImageRotator>('IMAGE_ROTATOR', {
+  providedIn: 'root',
+  factory: () => rotateImage,
+});
+
+async function rotateImage(image: Blob, quarterTurns: number): Promise<Blob> {
+  const turns = cleanRotation(quarterTurns);
+  const bitmap = await createImageBitmap(image);
+  try {
+    const sideways = turns % 2 === 1;
+    const canvas = document.createElement('canvas');
+    canvas.width = sideways ? bitmap.height : bitmap.width;
+    canvas.height = sideways ? bitmap.width : bitmap.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Sin contexto de dibujo');
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate((turns * Math.PI) / 2);
+    context.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+    return await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error('No se pudo codificar la imagen'))),
+        'image/jpeg',
+        ROTATED_JPEG_QUALITY,
       ),
     );
   } finally {

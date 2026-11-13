@@ -3,6 +3,19 @@
   margin-top: 12px;
 }
 
+// Foto grande con sus herramientas (girar y lupa). En pantallas anchas no
+// se estira: se queda centrada.
+.viewer {
+  margin-inline: auto;
+  max-width: var(--photo-width);
+  position: relative;
+}
+
+.viewport {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
 .frame {
   background: var(--mat-sys-surface-container);
   border: 0;
@@ -10,7 +23,7 @@
   cursor: zoom-in;
   display: block;
   height: 220px;
-  // En pantallas anchas la foto no se estira: se queda centrada.
+  // Los marcos de «cargando» y de error no van dentro de `.viewer`.
   margin-inline: auto;
   max-width: var(--photo-width);
   overflow: hidden;
@@ -34,6 +47,56 @@
       max-height: 80vh;
       object-fit: contain;
     }
+  }
+}
+
+// Con la lupa la foto es más ancha que su marco y se mueve dentro de él:
+// con el dedo en pantallas táctiles, arrastrando con el ratón o con las
+// barras de desplazamiento.
+.viewer.zoomed {
+  .viewport {
+    max-height: 80vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .frame {
+    border-radius: 0;
+    cursor: grab;
+    max-width: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    img {
+      max-height: none;
+      user-select: none;
+    }
+  }
+}
+
+.tools {
+  align-items: center;
+  background: color-mix(in srgb, var(--mat-sys-surface-container-highest) 88%, transparent);
+  border-radius: 24px;
+  bottom: 8px;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--mat-sys-shadow) 30%, transparent);
+  display: flex;
+  position: absolute;
+  right: 8px;
+
+  .separator {
+    background: var(--mat-sys-outline-variant);
+    height: 24px;
+    margin: 0 4px;
+    width: 1px;
+  }
+
+  .level {
+    font: var(--mat-sys-label-medium);
+    min-width: 44px;
+    text-align: center;
   }
 }
 

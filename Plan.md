@@ -345,6 +345,17 @@ ngsw-config.json
   `capture="environment"` (cámara) y otro sin él y con `multiple` (galería,
   varias fotos a la vez). La ficha muestra en grande la foto destacada y,
   debajo, la galería en pequeño: al pulsar una foto pasa a verse en grande.
+  **Girar**: el giro se guarda como metadato del archivo de la foto en Drive
+  (`appProperties.r`, cuartos de vuelta a la derecha; ausente si no está
+  girada). Girar es un `PATCH` de esa propiedad: la imagen no se vuelve a
+  subir ni a comprimir, la foto conserva su id y su sitio en la galería, y el
+  giro llega a los demás dispositivos con la sincronización. Para mostrarla,
+  el dispositivo genera una versión girada a partir del original en caché.
+  En el ZIP de copia de seguridad las fotos se guardan ya giradas, para que
+  se vean bien con cualquier programa y la copia no dependa del metadato.
+  **Lupa**: cinco niveles (100, 150, 200, 300 y 400 %) solo de
+  visualización; la foto ampliada se desplaza dentro de su marco con el dedo,
+  arrastrando con el ratón o con las barras de desplazamiento.
 - **`UpdateService`**: comprueba cada hora y al volver a primer plano si hay
   versión nueva (`SwUpdate`) y, cuando está descargada, lo avisa con un botón
   «Actualizar». No se aplica sola para no interrumpir lo que se esté haciendo.

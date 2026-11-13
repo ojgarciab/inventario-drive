@@ -3,7 +3,7 @@ import { InMemoryInventoryRepository } from '../inventory/in-memory-inventory-re
 import { InventoryRepository } from '../inventory/inventory-repository';
 import { InventoryStore } from '../inventory/inventory-store';
 import { Container } from '../inventory/models';
-import { IMAGE_RESIZER } from '../photos/image-resizer';
+import { IMAGE_RESIZER, IMAGE_ROTATOR } from '../photos/image-resizer';
 import { PhotoService } from '../photos/photo-service';
 import { BackupService } from './backup-service';
 import { readZip } from './zip';
@@ -15,6 +15,11 @@ async function setup() {
     providers: [
       { provide: InventoryRepository, useValue: repository },
       { provide: IMAGE_RESIZER, useValue: async (image: Blob) => image },
+      {
+        provide: IMAGE_ROTATOR,
+        useValue: async (image: Blob, turns: number) =>
+          new Blob([`GIRADA${turns}:${await image.text()}`]),
+      },
     ],
   });
   const store = TestBed.inject(InventoryStore);
@@ -132,6 +137,25 @@ describe('BackupService', () => {
       [2, 3],
       [3, 3],
     ]);
+  });
+
+  it('exporta las fotos giradas ya con su giro aplicado, y al restaurarlas no hay que girarlas', async () => {
+    const source = await setup();
+    const { caja } = await populate(source);
+    const photoId = source.store.featuredPhotoId(caja.id) as string;
+    const original = await text(await source.photos.blob(photoId));
+    await source.photos.rotate(caja.id, photoId, 1);
+
+    const zip = await source.backups.exportZip();
+    const files = await readZip(new Uint8Array(await zip.arrayBuffer()));
+    expect(new TextDecoder().decode(files.get(`fotos/${photoId}.jpg`))).toBe(`GIRADA1:${original}`);
+
+    const target = await setup();
+    await target.backups.import(await target.backups.read(zip));
+    const restored = target.store.search('caja')[0];
+    const photo = target.store.photosOf(restored.id).find((p) => p.id === restored.photoId);
+    expect(photo?.rotation).toBe(0);
+    expect(await text(await target.photos.blob(photo?.id as string))).toBe(`GIRADA1:${original}`);
   });
 
   it('no da por buena una copia si falta alguna fotografía', async () => {

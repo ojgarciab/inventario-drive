@@ -73,6 +73,13 @@ describe('DriveInventoryRepository', () => {
     expect(changes.removedIds).toEqual(['borrado', 'sin-archivo']);
   });
 
+  it('girar una foto cambia solo su metadato de giro, sin tocar la imagen', async () => {
+    api.update.mockResolvedValue(file('foto', { k: 'f', p: 'caja', r: '1' }));
+    const photo = await repository.rotatePhoto('foto', 1);
+    expect(api.update).toHaveBeenCalledWith('foto', { appProperties: { r: '1' } });
+    expect(photo).toMatchObject({ id: 'foto', entityId: 'caja', rotation: 1 });
+  });
+
   it('un movimiento es un PATCH con solo el contenedor padre', async () => {
     api.update.mockResolvedValue(file('caja', { k: 'c', p: 'aparador' }));
     const moved = await repository.updateEntity('caja', { parentId: 'aparador' });

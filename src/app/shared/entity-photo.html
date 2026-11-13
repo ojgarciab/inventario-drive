@@ -1,14 +1,70 @@
 @switch (state()) {
   @case ('ready') {
-    <button
-      type="button"
-      class="frame"
-      [class.expanded]="expanded()"
-      [attr.aria-label]="expanded() ? 'Reducir la foto' : 'Ampliar la foto'"
-      (click)="expanded.set(!expanded())"
-    >
-      <img [src]="url()" [alt]="'Foto de ' + entity().name" />
-    </button>
+    <div class="viewer" [class.zoomed]="zoomed()">
+      <div
+        #viewport
+        class="viewport"
+        (pointerdown)="dragStart($event)"
+        (pointermove)="dragMove($event)"
+      >
+        <button
+          type="button"
+          class="frame"
+          [class.expanded]="expanded()"
+          [style.width.%]="zoomed() ? zoom() * 100 : null"
+          [attr.aria-label]="
+            zoomed() ? 'Quitar la ampliación' : expanded() ? 'Reducir la foto' : 'Ampliar la foto'
+          "
+          (click)="toggle()"
+        >
+          <img [src]="url()" [alt]="'Foto de ' + entity().name" draggable="false" />
+        </button>
+      </div>
+      <div class="tools" role="group" aria-label="Herramientas de la foto">
+        <button
+          matIconButton
+          type="button"
+          class="rotate-left"
+          aria-label="Girar a la izquierda"
+          [disabled]="busy()"
+          (click)="rotate(-1)"
+        >
+          <mat-icon>rotate_90_degrees_ccw</mat-icon>
+        </button>
+        <button
+          matIconButton
+          type="button"
+          class="rotate-right"
+          aria-label="Girar a la derecha"
+          [disabled]="busy()"
+          (click)="rotate(1)"
+        >
+          <mat-icon>rotate_90_degrees_cw</mat-icon>
+        </button>
+        <span class="separator" aria-hidden="true"></span>
+        <button
+          matIconButton
+          type="button"
+          class="zoom-out"
+          aria-label="Alejar"
+          [disabled]="!zoomed()"
+          (click)="zoomOut()"
+        >
+          <mat-icon>zoom_out</mat-icon>
+        </button>
+        <span class="level" aria-live="polite">{{ zoom() * 100 }}&nbsp;%</span>
+        <button
+          matIconButton
+          type="button"
+          class="zoom-in"
+          aria-label="Acercar"
+          [disabled]="!canZoomIn()"
+          (click)="zoomIn()"
+        >
+          <mat-icon>zoom_in</mat-icon>
+        </button>
+      </div>
+    </div>
   }
   @case ('loading') {
     <div class="frame placeholder" role="status">Cargando la foto…</div>

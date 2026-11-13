@@ -75,7 +75,12 @@ export function fileToType(file: DriveFile): ContainerType | null {
 export function fileToPhoto(file: DriveFile): Photo | null {
   const props = file.appProperties ?? {};
   if (props['k'] !== 'f' || !props['p']) return null;
-  return { id: file.id, entityId: props['p'], createdAt: file.createdTime };
+  return {
+    id: file.id,
+    entityId: props['p'],
+    createdAt: file.createdTime,
+    rotation: cleanRotation(Number(props['r'])),
+  };
 }
 
 export function containerToFile(draft: ContainerDraft) {
@@ -108,12 +113,26 @@ export function typeToFile(draft: TypeDraft) {
   return { name: cleanName(draft.name), appProperties };
 }
 
-/** Metadatos del archivo de una fotografía; `p` es la entidad a la que pertenece. */
-export function photoToFile(entityId: string) {
-  return {
-    name: `foto-${entityId}.jpg`,
-    appProperties: { k: 'f', v: SCHEMA_VERSION, p: entityId },
-  };
+/**
+ * Metadatos del archivo de una fotografía; `p` es la entidad a la que
+ * pertenece y `r`, el giro con el que se muestra (ausente si no está girada).
+ */
+export function photoToFile(entityId: string, rotation = 0) {
+  const appProperties: Properties = { k: 'f', v: SCHEMA_VERSION, p: entityId };
+  const turns = cleanRotation(rotation);
+  if (turns !== 0) appProperties['r'] = String(turns);
+  return { name: `foto-${entityId}.jpg`, appProperties };
+}
+
+/** PATCH que cambia solo el giro de una fotografía; el archivo de imagen no se toca. */
+export function photoRotationPatch(rotation: number): DriveFilePatch {
+  const turns = cleanRotation(rotation);
+  return { appProperties: { r: turns === 0 ? null : String(turns) } };
+}
+
+/** Cuartos de vuelta a la derecha equivalentes, entre 0 y 3. */
+export function cleanRotation(rotation: number): number {
+  return Number.isFinite(rotation) ? ((Math.round(rotation) % 4) + 4) % 4 : 0;
 }
 
 /** Traduce cambios parciales a un PATCH: solo viajan los campos presentes. */

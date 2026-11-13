@@ -67,23 +67,31 @@ export class BackupService {
 
   /**
    * Copia completa, como archivo ZIP: los datos (`inventario.json`) y todas
-   * las fotografías (`fotos/<id>.jpg`). Si alguna foto no se puede obtener,
+   * las fotografías (`fotos/<id>.jpg`, ya giradas). Si alguna foto no se puede obtener,
    * la exportación falla en lugar de dar por buena una copia incompleta.
    */
   async exportZip(progress?: Progress): Promise<Blob> {
     const backup = this.snapshot();
-    const photoIds = [...new Set(backup.entities.flatMap((entity) => entity.photoIds))];
+    // Las fotos se exportan con su giro ya aplicado, para que se vean bien
+    // con cualquier programa y la copia no dependa de ese metadato.
+    const photos = new Map(
+      this.store
+        .everything()
+        .flatMap((entity) => this.store.photosOf(entity.id))
+        .map((photo) => [photo.id, photo]),
+    );
     const entries: ZipEntry[] = [
       { name: BACKUP_DATA_FILE, data: encoder.encode(JSON.stringify(backup, null, 2)) },
     ];
-    progress?.(0, photoIds.length);
-    for (const [index, photoId] of photoIds.entries()) {
-      const image = await this.photos.blob(photoId);
+    progress?.(0, photos.size);
+    let done = 0;
+    for (const photo of photos.values()) {
+      const image = await this.photos.blob(photo.id, photo.rotation);
       entries.push({
-        name: photoFileName(photoId),
+        name: photoFileName(photo.id),
         data: new Uint8Array(await image.arrayBuffer()),
       });
-      progress?.(index + 1, photoIds.length);
+      progress?.(++done, photos.size);
     }
     return new Blob([createZip(entries) as BlobPart], { type: 'application/zip' });
   }
