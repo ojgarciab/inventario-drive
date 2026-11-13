@@ -60,3 +60,14 @@ button[matButton] {
 .hint a {
   color: var(--mat-sys-primary);
 }
+
+.installed {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+    flex: none;
+  }
+}

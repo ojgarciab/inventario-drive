@@ -20,7 +20,7 @@ import { filter } from 'rxjs';
 import { authErrorMessage } from './core/auth/auth-messages';
 import { AuthService } from './core/auth/auth-service';
 import { InstallService } from './core/pwa/install-service';
-import { IosInstallDialog } from './shared/ios-install-dialog';
+import { installApp } from './shared/ios-install-dialog';
 import { MatDialog } from '@angular/material/dialog';
 import { InventoryStore } from './core/inventory/inventory-store';
 import { ThemePreference, ThemeService } from './core/theme/theme-service';
@@ -134,11 +134,8 @@ export class App {
     }
   }
 
-  /** Abre el diálogo de instalación del navegador o, donde no lo hay, las instrucciones. */
-  protected async install(): Promise<void> {
-    if (!(await this.installer.install())) {
-      this.dialog.open(IosInstallDialog, { maxWidth: 'min(480px, calc(100vw - 32px))' });
-    }
+  protected install(): Promise<void> {
+    return installApp(this.installer, this.dialog);
   }
 
   protected dismissInstall(): void {

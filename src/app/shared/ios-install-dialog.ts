@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { InstallService } from '../core/pwa/install-service';
 
 /** Instrucciones para instalar en iPhone o iPad, donde Safari no tiene diálogo propio. */
 @Component({
@@ -31,3 +32,10 @@ import { MatDialogModule } from '@angular/material/dialog';
   `,
 })
 export class IosInstallDialog {}
+
+/** Abre el diálogo de instalación del navegador o, donde no lo hay, las instrucciones. */
+export async function installApp(installer: InstallService, dialog: MatDialog): Promise<void> {
+  if (!(await installer.install())) {
+    dialog.open(IosInstallDialog, { maxWidth: 'min(480px, calc(100vw - 32px))' });
+  }
+}

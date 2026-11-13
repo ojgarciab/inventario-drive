@@ -12,7 +12,9 @@ import { BackupService } from '../../core/backup/backup-service';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { ContainerType } from '../../core/inventory/models';
+import { InstallService } from '../../core/pwa/install-service';
 import { confirm } from '../../shared/confirm-dialog';
+import { installApp } from '../../shared/ios-install-dialog';
 import { DOWNLOADER } from '../../shared/download';
 import { TypeDialog, TypeDialogData, TypeDialogResult } from './type-dialog';
 
@@ -38,6 +40,9 @@ export class Settings {
   private readonly snackBar = inject(MatSnackBar);
   private readonly download = inject(DOWNLOADER);
 
+  private readonly installer = inject(InstallService);
+  protected readonly installState = this.installer.state;
+
   protected readonly types = this.store.types;
   /** Operación larga en curso; mientras dura no se puede iniciar otra. */
   protected readonly task = signal<Task | null>(null);
@@ -47,6 +52,10 @@ export class Settings {
     return task && task.total > 0 ? Math.round((task.done / task.total) * 100) : 0;
   });
   protected readonly counts = this.store.counts;
+
+  protected install(): Promise<void> {
+    return installApp(this.installer, this.dialog);
+  }
 
   protected async addType(): Promise<void> {
     const result = await this.askType({ title: 'Nuevo tipo', name: '', icon: 'category' });

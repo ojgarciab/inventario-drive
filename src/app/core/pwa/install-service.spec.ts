@@ -31,6 +31,7 @@ describe('InstallService', () => {
     const install = TestBed.inject(InstallService);
     expect(install.available()).toBe(false);
     expect(install.suggested()).toBe(false);
+    expect(install.state()).toBe('unavailable');
   });
 
   it('usa el evento que llegó antes de arrancar la aplicación', () => {
@@ -101,14 +102,18 @@ describe('InstallService', () => {
   it('deja de ofrecerlo cuando la aplicación queda instalada', () => {
     const install = TestBed.inject(InstallService);
     announce(fakePrompt());
+    expect(install.state()).toBe('available');
     window.dispatchEvent(new Event('appinstalled'));
     expect(install.available()).toBe(false);
+    expect(install.state()).toBe('installed');
   });
 
   it('no lo ofrece si ya se está usando como aplicación instalada', () => {
     vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('standalone') }));
     window.inventarioInstallPrompt = fakePrompt();
-    expect(TestBed.inject(InstallService).available()).toBe(false);
+    const install = TestBed.inject(InstallService);
+    expect(install.available()).toBe(false);
+    expect(install.state()).toBe('installed');
   });
 
   it('en iPhone lo ofrece sin evento y pide mostrar instrucciones', async () => {

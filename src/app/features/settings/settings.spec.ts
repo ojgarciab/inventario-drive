@@ -28,6 +28,53 @@ describe('Settings', () => {
     document.querySelectorAll('.cdk-overlay-container').forEach((el) => el.replaceChildren());
   });
 
+  describe('instalación', () => {
+    const section = (el: HTMLElement) =>
+      el.querySelector('#install-title')?.closest('section') as HTMLElement;
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      window.inventarioInstallPrompt = undefined;
+    });
+
+    it('explica qué hacer cuando el navegador no ofrece instalar', async () => {
+      const { open } = await setup();
+      const el = await open('/ajustes');
+      expect(section(el).querySelector('.not-installable')?.textContent).toContain(
+        'no ofrece instalarla',
+      );
+      expect(section(el).querySelector('button')).toBeNull();
+    });
+
+    it('permite instalar aunque el aviso se haya cerrado, y después indica que está instalada', async () => {
+      localStorage.setItem('inventario.instalacion', String(Date.now()));
+      const event = Object.assign(new Event('beforeinstallprompt'), {
+        prompt: vi.fn().mockResolvedValue(undefined),
+        userChoice: Promise.resolve({ outcome: 'accepted' as const }),
+      });
+      window.inventarioInstallPrompt = event;
+      const { open, settle } = await setup();
+      const el = await open('/ajustes');
+
+      section(el).querySelector<HTMLButtonElement>('button.install')?.click();
+      await settle();
+      expect(event.prompt).toHaveBeenCalled();
+
+      window.dispatchEvent(new Event('appinstalled'));
+      await settle();
+      expect(section(el).querySelector('.installed')?.textContent).toContain('ya está instalada');
+      expect(section(el).querySelector('button')).toBeNull();
+      localStorage.clear();
+    });
+
+    it('indica que ya está instalada cuando se usa como aplicación', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('standalone') }));
+      const { open } = await setup();
+      const el = await open('/ajustes');
+      expect(section(el).querySelector('.installed')?.textContent).toContain('ya está instalada');
+    });
+  });
+
   it('lista los tipos de contenedor en su orden', async () => {
     const { open } = await setup();
     const el = await open('/ajustes');

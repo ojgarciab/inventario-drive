@@ -13,6 +13,8 @@ declare global {
   }
 }
 
+export type InstallState = 'installed' | 'available' | 'unavailable';
+
 /** Evento propio con el que `main.ts` avisa de que ya se puede instalar. */
 export const INSTALLABLE_EVENT = 'inventario-instalable';
 /** Momento, anotado en este dispositivo, en que el usuario cerró el aviso de instalación. */
@@ -32,7 +34,7 @@ export class InstallService {
   private readonly window = inject(DOCUMENT).defaultView as Window;
   private event = this.window.inventarioInstallPrompt;
 
-  private readonly installed =
+  private readonly standalone =
     this.window.matchMedia?.('(display-mode: standalone)').matches === true ||
     (this.window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
@@ -42,7 +44,9 @@ export class InstallService {
     (/macintosh/i.test(this.window.navigator.userAgent) &&
       this.window.navigator.maxTouchPoints > 1);
 
-  private readonly installable = signal(!this.installed && (!!this.event || this.isIos));
+  /** Se está usando como aplicación instalada, o se acaba de instalar. */
+  private readonly installedNow = signal(this.standalone);
+  private readonly installable = signal(!this.standalone && (!!this.event || this.isIos));
   private readonly dismissed = signal(readDismissed());
 
   /** Se puede instalar: la opción «Instalar aplicación» tiene sentido. */
@@ -50,12 +54,25 @@ export class InstallService {
   /** Conviene mostrar el aviso: se puede instalar y el usuario no lo ha cerrado hace poco. */
   readonly suggested = computed(() => this.installable() && !this.dismissed());
 
+  /**
+   * Situación de la instalación en este dispositivo. `unavailable` es que el
+   * navegador no ofrece instalar: o no lo admite, o la aplicación ya está
+   * instalada y se ha abierto en una pestaña (el navegador no lo dice).
+   */
+  readonly state = computed<InstallState>(() => {
+    if (this.installedNow()) return 'installed';
+    return this.installable() ? 'available' : 'unavailable';
+  });
+
   constructor() {
     this.window.addEventListener(INSTALLABLE_EVENT, () => {
       this.event = this.window.inventarioInstallPrompt;
-      if (!this.installed) this.installable.set(true);
+      if (!this.installedNow()) this.installable.set(true);
     });
-    this.window.addEventListener('appinstalled', () => this.installable.set(false));
+    this.window.addEventListener('appinstalled', () => {
+      this.installable.set(false);
+      this.installedNow.set(true);
+    });
   }
 
   /** Abre el diálogo del navegador. Devuelve `false` si hay que mostrar instrucciones. */

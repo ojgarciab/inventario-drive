@@ -110,6 +110,34 @@
   />
 </section>
 
+<section aria-labelledby="install-title">
+  <h2 id="install-title">Instalar la aplicación</h2>
+  @switch (installState()) {
+    @case ('installed') {
+      <p class="hint installed" role="status">
+        <mat-icon aria-hidden="true">check_circle</mat-icon>
+        La aplicación ya está instalada en este dispositivo.
+      </p>
+    }
+    @case ('available') {
+      <p class="hint">
+        Instálela para abrirla desde la pantalla de inicio, como cualquier otra aplicación.
+      </p>
+      <button matButton="tonal" type="button" class="install" (click)="install()">
+        <mat-icon>install_mobile</mat-icon>
+        Instalar
+      </button>
+    }
+    @default {
+      <p class="hint not-installable">
+        Este navegador no ofrece instalarla ahora mismo. Si ya la instaló, ábrala desde su icono; si
+        no, pruebe con la opción «Instalar aplicación» o «Añadir a pantalla de inicio» del menú del
+        navegador.
+      </p>
+    }
+  }
+</section>
+
 <section aria-labelledby="legal-title">
   <h2 id="legal-title">Información legal</h2>
   <p class="hint">
