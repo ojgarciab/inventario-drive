@@ -15,8 +15,11 @@ declare global {
 
 /** Evento propio con el que `main.ts` avisa de que ya se puede instalar. */
 export const INSTALLABLE_EVENT = 'inventario-instalable';
-/** Anotación, en este dispositivo, de que el usuario cerró el aviso de instalación. */
+/** Momento, anotado en este dispositivo, en que el usuario cerró el aviso de instalación. */
 const DISMISSED_KEY = 'inventario.instalacion';
+/** Días que el aviso tarda en volver a mostrarse después de cerrarlo. */
+export const INSTALL_SNOOZE_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Instalación como aplicación (PWA). Chrome, Edge y Samsung Internet ya no
@@ -44,7 +47,7 @@ export class InstallService {
 
   /** Se puede instalar: la opción «Instalar aplicación» tiene sentido. */
   readonly available = this.installable.asReadonly();
-  /** Conviene mostrar el aviso: se puede instalar y el usuario no lo ha cerrado. */
+  /** Conviene mostrar el aviso: se puede instalar y el usuario no lo ha cerrado hace poco. */
   readonly suggested = computed(() => this.installable() && !this.dismissed());
 
   constructor() {
@@ -68,11 +71,11 @@ export class InstallService {
     return true;
   }
 
-  /** Cierra el aviso y no lo vuelve a mostrar en este dispositivo. */
+  /** Cierra el aviso; en este dispositivo no vuelve a mostrarse hasta pasados unos días. */
   dismiss(): void {
     this.dismissed.set(true);
     try {
-      localStorage.setItem(DISMISSED_KEY, 'no');
+      localStorage.setItem(DISMISSED_KEY, String(Date.now()));
     } catch {
       // Sin almacenamiento el aviso volverá en la próxima visita.
     }
@@ -81,7 +84,10 @@ export class InstallService {
 
 function readDismissed(): boolean {
   try {
-    return localStorage.getItem(DISMISSED_KEY) === 'no';
+    const closedAt = Number(localStorage.getItem(DISMISSED_KEY));
+    // Una fecha futura (reloj cambiado) no cuenta: el aviso vuelve a mostrarse.
+    const elapsed = Date.now() - closedAt;
+    return closedAt > 0 && elapsed >= 0 && elapsed < INSTALL_SNOOZE_DAYS * DAY_MS;
   } catch {
     return false;
   }

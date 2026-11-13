@@ -163,7 +163,7 @@ describe('App', () => {
     expect(el.querySelector('.install')).toBeNull();
   });
 
-  it('el aviso de instalación se puede cerrar y no vuelve', async () => {
+  it('el aviso de instalación se puede cerrar', async () => {
     localStorage.clear();
     status.set('signedOut');
     user.set(null);
@@ -179,7 +179,7 @@ describe('App', () => {
     await settle();
 
     expect(el.querySelector('.install')).toBeNull();
-    expect(localStorage.getItem('inventario.instalacion')).toBe('no');
+    expect(Number(localStorage.getItem('inventario.instalacion'))).toBeGreaterThan(0);
     window.inventarioInstallPrompt = undefined;
     localStorage.clear();
   });
