@@ -19,6 +19,7 @@ Casa
 - Búsqueda de objetos mostrando la ruta completa hasta ellos.
 - Fotografías de objetos y contenedores: varias por elemento, con una
   destacada y una galería en la ficha.
+- Listado de etiquetas con el número de elementos que lleva cada una.
 - Tema claro u oscuro: sigue al dispositivo o se fuerza desde la cabecera.
 
 ## Cómo funciona

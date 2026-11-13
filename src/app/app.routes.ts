@@ -56,6 +56,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/search/search').then((m) => m.Search),
       },
       {
+        path: 'etiquetas',
+        title: 'Etiquetas',
+        loadComponent: () => import('./features/tags/tags').then((m) => m.Tags),
+      },
+      {
         path: 'ajustes',
         title: 'Ajustes',
         loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),

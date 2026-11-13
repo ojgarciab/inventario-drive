@@ -1,6 +1,7 @@
 import { Container, ContainerType, Entity, Item } from './models';
 import {
   canonicalTypes,
+  countTags,
   descendantIds,
   findUnplaced,
   indexChildren,
@@ -126,5 +127,33 @@ describe('utilidades de árbol', () => {
     ]);
     expect(types.map((t) => t.id)).toEqual(['otro', 'propio', 'b-casa', 'a-caja']);
     expect([...aliases]).toEqual([['z-caja', 'a-caja']]);
+  });
+});
+
+describe('countTags', () => {
+  it('ordena de la más usada a la menos y, a igualdad, alfabéticamente', () => {
+    const counts = countTags([
+      thing('a', null, { tags: ['navidad', 'frágil'] }),
+      thing('b', null, { tags: ['navidad'] }),
+      thing('c', null, { tags: ['cables'] }),
+    ]);
+    expect(counts).toEqual([
+      { tag: 'navidad', count: 2 },
+      { tag: 'cables', count: 1 },
+      { tag: 'frágil', count: 1 },
+    ]);
+  });
+
+  it('une las que solo difieren en mayúsculas o acentos y muestra la grafía más frecuente', () => {
+    const counts = countTags([
+      thing('a', null, { tags: ['Fragil'] }),
+      thing('b', null, { tags: ['frágil'] }),
+      thing('c', null, { tags: ['frágil', 'FRÁGIL'] }),
+    ]);
+    expect(counts).toEqual([{ tag: 'frágil', count: 3 }]);
+  });
+
+  it('sin etiquetas no devuelve nada', () => {
+    expect(countTags([thing('a', null)])).toEqual([]);
   });
 });

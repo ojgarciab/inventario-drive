@@ -18,6 +18,40 @@ interface Row {
   detail: string | null;
 }
 
+/** Funciones principales, que se explican al pie de la página de inicio. */
+const FEATURES: readonly { icon: string; title: string; text: string }[] = [
+  {
+    icon: 'account_tree',
+    title: 'Un sitio para cada cosa',
+    text: 'Organice la casa en contenedores dentro de contenedores (habitaciones, armarios, cajas) y anote en cuál está cada objeto.',
+  },
+  {
+    icon: 'search',
+    title: 'Encuentre lo que busca',
+    text: 'Busque por nombre, notas o etiquetas y verá la ruta completa hasta el objeto, sin importar mayúsculas ni acentos.',
+  },
+  {
+    icon: 'photo_library',
+    title: 'Fotografías',
+    text: 'Añada varias fotos a cada contenedor u objeto y destaque la que mejor lo identifica.',
+  },
+  {
+    icon: 'sell',
+    title: 'Etiquetas',
+    text: 'Agrupe con etiquetas lo que está repartido por la casa y consulte cuáles usa más.',
+  },
+  {
+    icon: 'drive_file_move',
+    title: 'Mudanzas sin perder nada',
+    text: 'Mueva un objeto o un contenedor entero, con todo su contenido, a otro lugar en un par de toques.',
+  },
+  {
+    icon: 'cloud_done',
+    title: 'Sus datos, en su Google Drive',
+    text: 'El inventario se guarda en su cuenta, se comparte entre sus dispositivos y puede exportarlo como copia de seguridad.',
+  },
+];
+
 /** Contenido de un contenedor, o de la raíz si no se indica ninguno. */
 @Component({
   imports: [
@@ -67,6 +101,7 @@ export class Browse {
   protected readonly newParams = computed(() => (this.id() ? { en: this.id() } : {}));
   protected readonly unplacedCount = computed(() => this.store.unplaced().length);
   protected readonly link = entityLink;
+  protected readonly features = FEATURES;
 
   constructor() {
     usePageTitle(() => (this.id() ? this.container()?.name : 'Inicio'));

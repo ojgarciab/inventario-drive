@@ -29,6 +29,9 @@
       </ul>
     }
   } @else {
+    <p class="welcome">
+      Le damos la bienvenida a su archivo: aquí está todo lo que guarda en casa y dónde encontrarlo.
+    </p>
     <h1>Inicio</h1>
     @if (unplacedCount() > 0) {
       <a class="notice" routerLink="/sin-ubicar">
@@ -69,6 +72,23 @@
         }
       </mat-nav-list>
     }
+  }
+
+  @if (!container()) {
+    <section class="landing" aria-labelledby="landing-title">
+      <h2 id="landing-title">Qué puede hacer con el inventario</h2>
+      <ul>
+        @for (feature of features; track feature.title) {
+          <li>
+            <mat-icon aria-hidden="true">{{ feature.icon }}</mat-icon>
+            <div>
+              <h3>{{ feature.title }}</h3>
+              <p>{{ feature.text }}</p>
+            </div>
+          </li>
+        }
+      </ul>
+    </section>
   }
 
   <button mat-fab class="add" type="button" aria-label="Añadir" [matMenuTriggerFor]="addMenu">

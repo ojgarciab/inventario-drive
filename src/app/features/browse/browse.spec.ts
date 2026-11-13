@@ -9,6 +9,30 @@ describe('Browse', () => {
     expect(el.querySelector('mat-nav-list')).toBeNull();
   });
 
+  it('en el inicio da la bienvenida y presenta la aplicación bajo el listado', async () => {
+    const { open, store } = await setupApp();
+    const casa = await store.addContainer({ name: 'Casa', typeId: null });
+    const el = await open('/');
+
+    const welcome = el.querySelector('.welcome') as HTMLElement;
+    const heading = el.querySelector('h1') as HTMLElement;
+    const list = el.querySelector('mat-nav-list') as HTMLElement;
+    const landing = el.querySelector('.landing') as HTMLElement;
+    expect(welcome.textContent).toContain('Le damos la bienvenida');
+    const follows = (a: Node, b: Node) =>
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(follows(welcome, heading)).toBe(true);
+    expect(follows(heading, list)).toBe(true);
+    expect(follows(list, landing)).toBe(true);
+    expect(texts(el, '.landing h3')).toContain('Etiquetas');
+    expect(texts(el, '.landing h3').length).toBe(6);
+
+    // Dentro de un contenedor no se repite.
+    const inside = await open(`/c/${casa.id}`);
+    expect(inside.querySelector('.welcome')).toBeNull();
+    expect(inside.querySelector('.landing')).toBeNull();
+  });
+
   it('lista el contenido de un contenedor con su ruta', async () => {
     const { open, store, typeId } = await setupApp();
     const casa = await store.addContainer({ name: 'Casa', typeId: typeId('Casa') });

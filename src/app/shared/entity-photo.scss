@@ -50,6 +50,14 @@
   }
 }
 
+// En pantallas anchas (donde las listas van a dos columnas) el marco es
+// bastante más ancho; con la misma altura la foto quedaría aplastada.
+@media (min-width: 900px) {
+  .frame:not(.expanded) {
+    height: 360px;
+  }
+}
+
 // Con la lupa la foto es más ancha que su marco y se mueve dentro de él:
 // con el dedo en pantallas táctiles, arrastrando con el ratón o con las
 // barras de desplazamiento.

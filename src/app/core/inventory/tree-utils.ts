@@ -126,6 +126,40 @@ export function searchEntities(query: string, entities: Iterable<Entity>): Entit
   return [...byName.sort(compareEntities), ...byRest.sort(compareEntities)];
 }
 
+/** Etiqueta en uso y cuántos contenedores y objetos la llevan. */
+export interface TagCount {
+  tag: string;
+  count: number;
+}
+
+/**
+ * Etiquetas en uso, de la más usada a la menos (a igualdad, por orden
+ * alfabético). Las que solo difieren en mayúsculas o acentos cuentan como
+ * una, igual que en la búsqueda; se muestra la grafía más frecuente.
+ */
+export function countTags(entities: Iterable<Entity>): TagCount[] {
+  const groups = new Map<string, { count: number; spellings: Map<string, number> }>();
+  for (const entity of entities) {
+    const seen = new Set<string>();
+    for (const tag of entity.tags) {
+      const key = normalizeText(tag);
+      if (!key) continue;
+      let group = groups.get(key);
+      if (!group) groups.set(key, (group = { count: 0, spellings: new Map() }));
+      group.spellings.set(tag, (group.spellings.get(tag) ?? 0) + 1);
+      // Un elemento cuenta una vez aunque repita la etiqueta con otra grafía.
+      if (!seen.has(key)) group.count++;
+      seen.add(key);
+    }
+  }
+  return [...groups.values()]
+    .map(({ count, spellings }) => ({
+      tag: [...spellings].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))[0][0],
+      count,
+    }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'es'));
+}
+
 /**
  * Ordena los tipos y funde los tipos por defecto duplicados (dos dispositivos
  * pueden crearlos a la vez en el primer arranque). Gana siempre el mismo en

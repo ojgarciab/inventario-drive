@@ -18,6 +18,7 @@ import {
 import {
   canonicalTypes,
   compareEntities,
+  countTags,
   descendantIds,
   findUnplaced,
   indexChildren,
@@ -91,6 +92,8 @@ export class InventoryStore {
       .filter((entity) => entity.deletedAt)
       .sort((a, b) => (b.deletedAt as string).localeCompare(a.deletedAt as string)),
   );
+  /** Etiquetas en uso, de la más usada a la menos. */
+  readonly tags = computed(() => countTags(this.active().values()));
   readonly counts = computed(() => {
     let containers = 0;
     let items = 0;
