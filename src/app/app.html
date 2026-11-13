@@ -60,6 +60,12 @@
         <mat-icon>sync</mat-icon>
         <span>Actualizar ahora</span>
       </button>
+      @if (installAvailable()) {
+        <button mat-menu-item type="button" (click)="install()">
+          <mat-icon>install_mobile</mat-icon>
+          <span>Instalar aplicación</span>
+        </button>
+      }
       <a mat-menu-item routerLink="/etiquetas">
         <mat-icon>sell</mat-icon>
         <span>Etiquetas</span>
@@ -84,6 +90,21 @@
   <div class="resume" role="alert">
     <span>{{ resumeError() ?? 'La sesión ha caducado. Toca la pantalla para reanudarla.' }}</span>
     <button matButton="tonal" type="button" (click)="resume()">Reanudar sesión</button>
+  </div>
+}
+
+@if (installSuggested()) {
+  <div class="install" role="region" aria-label="Instalar la aplicación">
+    <mat-icon aria-hidden="true">install_mobile</mat-icon>
+    <span
+      >Instale la aplicación para abrirla desde la pantalla de inicio, como cualquier otra.</span
+    >
+    <button matButton="tonal" type="button" class="install-now" (click)="install()">
+      Instalar
+    </button>
+    <button matIconButton type="button" aria-label="Cerrar el aviso" (click)="dismissInstall()">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
 }
 

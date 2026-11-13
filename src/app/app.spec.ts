@@ -140,6 +140,50 @@ describe('App', () => {
     localStorage.clear();
   });
 
+  it('sugiere instalar la aplicación cuando el navegador lo permite', async () => {
+    localStorage.clear();
+    status.set('signedOut');
+    user.set(null);
+    const { el, settle } = await render();
+    expect(el.querySelector('.install')).toBeNull();
+
+    const event = Object.assign(new Event('beforeinstallprompt'), {
+      prompt: vi.fn().mockResolvedValue(undefined),
+      userChoice: Promise.resolve({ outcome: 'accepted' as const }),
+    });
+    window.inventarioInstallPrompt = event;
+    window.dispatchEvent(new Event('inventario-instalable'));
+    await settle();
+    expect(el.querySelector('.install')?.textContent).toContain('Instale la aplicación');
+
+    el.querySelector<HTMLButtonElement>('.install-now')?.click();
+    await settle();
+
+    expect(event.prompt).toHaveBeenCalled();
+    expect(el.querySelector('.install')).toBeNull();
+  });
+
+  it('el aviso de instalación se puede cerrar y no vuelve', async () => {
+    localStorage.clear();
+    status.set('signedOut');
+    user.set(null);
+    const { el, settle } = await render();
+    window.inventarioInstallPrompt = Object.assign(new Event('beforeinstallprompt'), {
+      prompt: vi.fn(),
+      userChoice: Promise.resolve({ outcome: 'dismissed' as const }),
+    });
+    window.dispatchEvent(new Event('inventario-instalable'));
+    await settle();
+
+    el.querySelector<HTMLButtonElement>('.install [aria-label="Cerrar el aviso"]')?.click();
+    await settle();
+
+    expect(el.querySelector('.install')).toBeNull();
+    expect(localStorage.getItem('inventario.instalacion')).toBe('no');
+    window.inventarioInstallPrompt = undefined;
+    localStorage.clear();
+  });
+
   it('avisa cuando no hay conexión', async () => {
     status.set('signedIn');
     user.set(casa);

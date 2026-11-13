@@ -19,6 +19,9 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router
 import { filter } from 'rxjs';
 import { authErrorMessage } from './core/auth/auth-messages';
 import { AuthService } from './core/auth/auth-service';
+import { InstallService } from './core/pwa/install-service';
+import { IosInstallDialog } from './shared/ios-install-dialog';
+import { MatDialog } from '@angular/material/dialog';
 import { InventoryStore } from './core/inventory/inventory-store';
 import { ThemePreference, ThemeService } from './core/theme/theme-service';
 import { SyncService } from './core/inventory/sync-service';
@@ -60,6 +63,10 @@ export class App {
   protected readonly online = inject(Connectivity).online;
   protected readonly autoSync = this.sync.autoSync;
   protected readonly resumeError = signal<string | null>(null);
+  private readonly installer = inject(InstallService);
+  private readonly dialog = inject(MatDialog);
+  protected readonly installAvailable = this.installer.available;
+  protected readonly installSuggested = this.installer.suggested;
   private readonly themeService = inject(ThemeService);
   protected readonly themes = THEMES;
   protected readonly theme = this.themeService.preference;
@@ -125,6 +132,17 @@ export class App {
     } catch (error) {
       this.resumeError.set(authErrorMessage(error));
     }
+  }
+
+  /** Abre el diálogo de instalación del navegador o, donde no lo hay, las instrucciones. */
+  protected async install(): Promise<void> {
+    if (!(await this.installer.install())) {
+      this.dialog.open(IosInstallDialog, { maxWidth: 'min(480px, calc(100vw - 32px))' });
+    }
+  }
+
+  protected dismissInstall(): void {
+    this.installer.dismiss();
   }
 
   protected setTheme(preference: ThemePreference): void {

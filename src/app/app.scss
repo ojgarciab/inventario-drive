@@ -89,6 +89,24 @@ mat-toolbar {
   padding: 8px var(--page-gutter);
 }
 
+.install {
+  align-items: center;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  display: flex;
+  gap: 12px;
+  padding: 4px var(--page-gutter);
+
+  span {
+    flex: 1;
+    font: var(--mat-sys-body-small);
+  }
+
+  button {
+    flex: none;
+  }
+}
+
 .offline {
   align-items: center;
   background: var(--mat-sys-surface-container-highest);
