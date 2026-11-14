@@ -66,7 +66,7 @@ const MODEL_PROFILES: { spanish: boolean; options: object }[] = [
 /** Cada cuánto se vuelve a preguntar a Chrome mientras descarga el modelo por su cuenta. */
 const DOWNLOAD_POLL_MS = 5000;
 const NO_TEXT = 'SIN_TEXTO';
-const MAX_OBJECTS = 20;
+const MAX_OBJECTS = 30;
 const MAX_NAME_LENGTH = 80;
 
 const TRANSCRIBE_PROMPT =
@@ -76,8 +76,12 @@ const TRANSCRIBE_PROMPT =
 
 const RECOGNIZE_PROMPT =
   'Esta fotografía muestra el interior de un contenedor de una casa (una caja, un cajón, un ' +
-  'armario). Enumera los objetos distintos que se ven, con nombres cortos y concretos en ' +
-  `español. No repitas objetos, no incluyas el propio contenedor ni el fondo, y no pases de ${MAX_OBJECTS}.`;
+  'armario, una estantería). Enumera uno a uno los objetos que se ven, con nombres cortos y ' +
+  'concretos en español. Si un objeto lleva un título, una marca o un modelo legible (libros, ' +
+  'discos, películas, juegos, cajas de productos), da una entrada por cada uno con ese texto, ' +
+  'por ejemplo «Libro: El Quijote», en lugar de agruparlos en un nombre genérico como ' +
+  '«Libros». No inventes títulos que no se lean. No repitas objetos, no incluyas el propio ' +
+  `contenedor ni el fondo, y no pases de ${MAX_OBJECTS}.`;
 
 const OBJECTS_SCHEMA = {
   type: 'object',
