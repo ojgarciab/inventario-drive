@@ -104,7 +104,7 @@
 }
 
 @if (busy()) {
-  <mat-progress-bar mode="indeterminate" aria-label="Guardando la foto" />
+  <mat-progress-bar mode="indeterminate" aria-label="Trabajando con la foto" />
 }
 
 <div class="actions">
@@ -139,6 +139,30 @@
       <mat-icon>hide_image</mat-icon>
       Quitar
     </button>
+  }
+  @if (ai.ready() && selectedId()) {
+    <button
+      matButton
+      type="button"
+      class="read-text"
+      [disabled]="busy() || !online()"
+      (click)="readText()"
+    >
+      <mat-icon>document_scanner</mat-icon>
+      Leer texto
+    </button>
+    @if (entity().kind === 'container') {
+      <button
+        matButton
+        type="button"
+        class="recognize"
+        [disabled]="busy() || !online()"
+        (click)="recognizeObjects()"
+      >
+        <mat-icon>image_search</mat-icon>
+        Reconocer objetos
+      </button>
+    }
   }
 </div>
 

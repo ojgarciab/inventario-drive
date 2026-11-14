@@ -74,6 +74,113 @@
   </button>
 </section>
 
+<section class="ai" aria-labelledby="ai-title">
+  <h2 id="ai-title">
+    Inteligencia artificial en el dispositivo
+    <span class="badge">Experimental</span>
+  </h2>
+  <p class="hint">
+    Usa el modelo que Chrome ejecuta en su propio ordenador para leer el texto de una foto y
+    añadirlo a las notas, y para reconocer los objetos de la foto de un contenedor. Las fotos no
+    salen del dispositivo. Los resultados pueden contener errores: siempre se le muestran para
+    revisarlos antes de guardar nada.
+  </p>
+  <details>
+    <summary>Requisitos</summary>
+    <ul>
+      <li>
+        Chrome 148 o posterior en un ordenador (Windows 10 u 11, macOS 13 o posterior, Linux o un
+        Chromebook Plus). No funciona en móviles ni en otros navegadores.
+      </li>
+      <li>
+        Una descarga inicial de 4 GB, con una conexión sin límite de datos, y sitio para ella en la
+        carpeta temporal del sistema: si no cabe, Chrome no la empieza y se queda en el 0 % sin dar
+        ningún error. En Linux esa carpeta es <code>/tmp</code>; se puede usar otra abriendo Chrome
+        con <code>TMPDIR=/otra/carpeta google-chrome</code>.
+      </li>
+      <li>Al menos 22 GB libres en el disco donde está el perfil de Chrome.</li>
+      <li>
+        Una tarjeta gráfica con más de 4 GB de memoria, o bien 16 GB de RAM y 4 núcleos de
+        procesador.
+      </li>
+    </ul>
+  </details>
+
+  @switch (ai.availability()) {
+    @case ('unsupported') {
+      <p class="hint status" role="status">
+        Este navegador no tiene inteligencia artificial integrada, así que estas funciones no están
+        disponibles aquí.
+      </p>
+    }
+    @case ('unavailable') {
+      <p class="hint status" role="status">
+        Este equipo no cumple los requisitos para ejecutar el modelo.
+      </p>
+    }
+    @default {
+      <p class="hint status" role="status">
+        @if (!ai.enabled()) {
+          Desactivada en este dispositivo.
+        } @else if (ai.availability() === 'available') {
+          Activada y lista. Encontrará «Leer texto» y «Reconocer objetos» junto a las fotos.
+        } @else if (ai.availability() === 'downloading') {
+          Descargando el modelo…
+          @if (ai.downloadProgress() !== null) {
+            {{ aiPercent() }} %
+          }
+        } @else {
+          Activada, pero falta descargar el modelo.
+        }
+      </p>
+      @if (ai.enabled() && ai.availability() === 'downloading') {
+        <p class="hint downloading">
+          La descarga la hace Chrome en segundo plano; puede seguir usando la aplicación mientras
+          tanto. Si se queda en el 0 %, lo más probable es que falte espacio en la carpeta temporal
+          del sistema (vea los requisitos). El avance real se ve en
+          <code>chrome://on-device-internals</code>, pestaña «Broker State».
+        </p>
+      }
+      @if (!ai.spanish()) {
+        <p class="hint language">
+          Esta versión de Chrome no declara compatibilidad del modelo con el español. Se puede usar
+          igualmente, pero los nombres reconocidos pueden salir en inglés o ser menos precisos.
+        </p>
+      }
+      @if (ai.enabled() && ai.availability() === 'downloading') {
+        <!-- Si la descarga no se pidió desde esta página no se conoce su avance:
+             la barra indica actividad hasta que el usuario pide verlo. -->
+        <mat-progress-bar
+          [mode]="ai.downloadProgress() === null ? 'indeterminate' : 'determinate'"
+          [value]="aiPercent()"
+          aria-label="Descarga del modelo"
+        />
+      }
+
+      <div class="buttons">
+        <button matButton="tonal" type="button" class="ai-toggle" (click)="toggleAi()">
+          <mat-icon>{{ ai.enabled() ? 'toggle_on' : 'toggle_off' }}</mat-icon>
+          {{ ai.enabled() ? 'Desactivar' : 'Activar' }}
+        </button>
+        @if (
+          ai.enabled() && ai.availability() === 'downloading' && ai.downloadProgress() === null
+        ) {
+          <button matButton="tonal" type="button" class="ai-progress" (click)="downloadAi()">
+            <mat-icon>monitoring</mat-icon>
+            Ver el avance
+          </button>
+        }
+        @if (ai.enabled() && ai.availability() === 'downloadable') {
+          <button matButton="tonal" type="button" class="ai-download" (click)="downloadAi()">
+            <mat-icon>download</mat-icon>
+            Descargar el modelo
+          </button>
+        }
+      </div>
+    }
+  }
+</section>
+
 <section aria-labelledby="install-title">
   <h2 id="install-title">Instalar la aplicación</h2>
   @switch (installState()) {

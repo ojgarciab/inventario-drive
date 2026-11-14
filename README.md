@@ -257,6 +257,15 @@ compilación de producción.
 
 ## Uso con asistentes de IA
 
+- **IA en el dispositivo (experimental)**: con la
+  [Prompt API de Chrome](https://developer.chrome.com/docs/ai/prompt-api), que
+  ejecuta un modelo en el propio ordenador, la aplicación puede leer el texto
+  de una foto para añadirlo a las notas y reconocer los objetos de la foto de
+  un contenedor para añadirlos a su contenido. Se activa en *Ajustes*, donde
+  se indican los requisitos (Chrome 148 o posterior de escritorio, unos 4 GB
+  de descarga, 22 GB libres, y GPU con más de 4 GB o 16 GB de RAM). Las fotos
+  no salen del dispositivo. Está en `src/app/core/ai/local-ai.ts`.
+
 - **Herramientas WebMCP**: en navegadores que admiten
   [WebMCP](https://webmachinelearning.github.io/webmcp/) (experimental), la
   aplicación registra diez herramientas (`inventario_buscar`,

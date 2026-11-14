@@ -1,4 +1,6 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { LocalAi } from '../core/ai/local-ai';
 import { PhotoService } from '../core/photos/photo-service';
 import { clickOn, setupApp } from '../testing';
 
@@ -444,5 +446,150 @@ describe('EntityPhoto', () => {
       'No se ha podido guardar',
     );
     expect(el.querySelector('img')).toBeNull();
+  });
+
+  describe('inteligencia artificial del dispositivo', () => {
+    const ready = signal(true);
+    const transcribe = vi.fn();
+    const recognize = vi.fn();
+    const snack = () => document.querySelector('mat-snack-bar-container')?.textContent ?? '';
+    const dialogOpen = () => document.querySelector('mat-dialog-container') !== null;
+
+    async function withAi() {
+      ready.set(true);
+      transcribe.mockReset();
+      recognize.mockReset();
+      TestBed.overrideProvider(LocalAi, { useValue: { ready, transcribe, recognize } });
+      const app = await setup();
+      vi.spyOn(app.photos, 'blob').mockResolvedValue(new Blob(['imagen']));
+      return app;
+    }
+
+    it('sin IA activada no aparecen sus botones', async () => {
+      const { open, settle, store, addPhotos } = await withAi();
+      ready.set(false);
+      const caja = await store.addContainer({ name: 'Caja', typeId: null });
+      await addPhotos(caja.id, 1);
+      const el = await open(`/c/${caja.id}`);
+      await settle();
+      expect(el.querySelector('.read-text, .recognize')).toBeNull();
+    });
+
+    it('en un objeto ofrece leer texto, y en un contenedor además reconocer objetos', async () => {
+      const { open, settle, store, addPhotos } = await withAi();
+      const caja = await store.addContainer({ name: 'Caja', typeId: null });
+      const item = await store.addItem({ name: 'Taladro' });
+      await addPhotos(caja.id, 1);
+      await addPhotos(item.id, 1);
+
+      const objeto = await open(`/o/${item.id}`);
+      await settle();
+      expect(objeto.querySelector('.read-text')).not.toBeNull();
+      expect(objeto.querySelector('.recognize')).toBeNull();
+
+      const contenedor = await open(`/c/${caja.id}`);
+      await settle();
+      expect(contenedor.querySelector('.read-text')).not.toBeNull();
+      expect(contenedor.querySelector('.recognize')).not.toBeNull();
+    });
+
+    it('añade a las notas el texto leído, después de dejar revisarlo', async () => {
+      const { open, settle, until, store, addPhotos } = await withAi();
+      const item = await store.addItem({ name: 'Cargador', notes: 'En la caja azul' });
+      await addPhotos(item.id, 1);
+      transcribe.mockResolvedValue('Modelo BC-700');
+      await open(`/o/${item.id}`);
+      await settle();
+
+      clickOn('.read-text');
+      await until(dialogOpen);
+      const textarea = document.querySelector<HTMLTextAreaElement>('mat-dialog-container textarea');
+      expect(textarea?.value).toBe('Modelo BC-700');
+      expect(store.get(item.id)?.notes).toBe('En la caja azul'); // todavía no se ha guardado
+
+      if (textarea) {
+        textarea.value = 'Modelo BC-700 (techno line)';
+        textarea.dispatchEvent(new Event('input'));
+      }
+      clickOn('mat-dialog-actions .confirm');
+      await until(() => store.get(item.id)?.notes.includes('BC-700') === true);
+
+      expect(store.get(item.id)?.notes).toBe('En la caja azul\n\nModelo BC-700 (techno line)');
+    });
+
+    it('no cambia nada si se cancela la revisión o la foto no tiene texto', async () => {
+      const { open, settle, until, store, addPhotos } = await withAi();
+      const item = await store.addItem({ name: 'Cargador' });
+      await addPhotos(item.id, 1);
+      await open(`/o/${item.id}`);
+      await settle();
+
+      transcribe.mockResolvedValueOnce('');
+      clickOn('.read-text');
+      await until(() => snack().includes('No se ha encontrado texto'));
+      expect(dialogOpen()).toBe(false);
+
+      transcribe.mockResolvedValueOnce('Texto');
+      clickOn('.read-text');
+      await until(dialogOpen);
+      clickOn('mat-dialog-actions button', 'Cancelar');
+      await until(() => !dialogOpen());
+      expect(store.get(item.id)?.notes).toBe('');
+    });
+
+    it('reconoce objetos y deja sin marcar los que ya están en el contenedor', async () => {
+      const { open, settle, until, store, addPhotos } = await withAi();
+      const caja = await store.addContainer({ name: 'Caja', typeId: null });
+      await store.addItem({ name: 'Cables USB', parentId: caja.id });
+      await addPhotos(caja.id, 1);
+      recognize.mockResolvedValue(['Taladro', 'Cable usb', 'Destornillador']);
+      await open(`/c/${caja.id}`);
+      await settle();
+
+      clickOn('.recognize');
+      await until(dialogOpen);
+      const boxes = [
+        ...document.querySelectorAll<HTMLInputElement>(
+          'mat-dialog-container input[type="checkbox"]',
+        ),
+      ];
+      expect(boxes.map((box) => box.checked)).toEqual([true, false, true]);
+      expect(document.querySelector('mat-dialog-container')?.textContent).toContain('(ya está)');
+      expect(document.querySelector('mat-dialog-actions .confirm')?.textContent?.trim()).toBe(
+        'Añadir 2 objetos',
+      );
+
+      boxes[2].click(); // se descarta el destornillador
+      await settle();
+      clickOn('mat-dialog-actions .confirm');
+      await until(() => store.children(caja.id).length === 2);
+
+      expect(
+        store
+          .children(caja.id)
+          .map((child) => child.name)
+          .sort(),
+      ).toEqual(['Cables USB', 'Taladro']);
+      await until(() => snack().includes('Añadido 1 objeto'));
+    });
+
+    it('no añade nada si no se reconoce ningún objeto o se cancela', async () => {
+      const { open, settle, until, store, addPhotos } = await withAi();
+      const caja = await store.addContainer({ name: 'Caja', typeId: null });
+      await addPhotos(caja.id, 1);
+      await open(`/c/${caja.id}`);
+      await settle();
+
+      recognize.mockResolvedValueOnce([]);
+      clickOn('.recognize');
+      await until(() => snack().includes('No se ha reconocido ningún objeto'));
+
+      recognize.mockResolvedValueOnce(['Taladro']);
+      clickOn('.recognize');
+      await until(dialogOpen);
+      clickOn('mat-dialog-actions button', 'Cancelar');
+      await until(() => !dialogOpen());
+      expect(store.children(caja.id)).toEqual([]);
+    });
   });
 });

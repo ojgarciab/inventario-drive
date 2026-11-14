@@ -7,6 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { LocalAi, LocalAiError } from '../../core/ai/local-ai';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { ContainerType } from '../../core/inventory/models';
@@ -41,6 +42,12 @@ export class Settings {
   private readonly installer = inject(InstallService);
   protected readonly installState = this.installer.state;
 
+  /** Inteligencia artificial en el dispositivo (experimental). */
+  protected readonly ai = inject(LocalAi);
+  protected readonly aiPercent = computed(() =>
+    Math.round((this.ai.downloadProgress() ?? 0) * 100),
+  );
+
   protected readonly types = this.store.types;
   /** Operación larga en curso; mientras dura no se puede iniciar otra. */
   protected readonly task = signal<Task | null>(null);
@@ -52,6 +59,22 @@ export class Settings {
 
   protected install(): Promise<void> {
     return installApp(this.installer, this.dialog);
+  }
+
+  protected toggleAi(): void {
+    this.ai.setEnabled(!this.ai.enabled());
+  }
+
+  /** Debe llamarse desde la pulsación del botón: Chrome solo descarga a petición del usuario. */
+  protected async downloadAi(): Promise<void> {
+    try {
+      await this.ai.download();
+    } catch (error) {
+      this.snackBar.open(
+        error instanceof LocalAiError ? error.message : 'No se ha podido descargar el modelo.',
+        'Cerrar',
+      );
+    }
   }
 
   protected async addType(): Promise<void> {

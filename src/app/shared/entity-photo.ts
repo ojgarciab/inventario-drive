@@ -14,11 +14,13 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { LocalAi, LocalAiError, comparableName } from '../core/ai/local-ai';
 import { inventoryErrorMessage } from '../core/inventory/inventory-messages';
 import { InventoryStore } from '../core/inventory/inventory-store';
 import { Entity, EntityId, Photo } from '../core/inventory/models';
 import { Connectivity } from '../core/pwa/connectivity';
 import { PhotoService } from '../core/photos/photo-service';
+import { chooseItems, reviewText } from './ai-dialogs';
 import { confirm } from './confirm-dialog';
 
 type PhotoState = 'none' | 'loading' | 'ready' | 'error';
@@ -43,6 +45,8 @@ const DRAG_THRESHOLD_PX = 5;
 })
 export class EntityPhoto {
   private readonly photos = inject(PhotoService);
+  /** Funciones de inteligencia artificial en el dispositivo; opcionales. */
+  protected readonly ai = inject(LocalAi);
   /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
   protected readonly online = inject(Connectivity).online;
   private readonly store = inject(InventoryStore);
@@ -203,6 +207,60 @@ export class EntityPhoto {
     });
   }
 
+  /** Lee con la IA del dispositivo el texto de la foto y lo añade a las notas, tras revisarlo. */
+  protected async readText(): Promise<void> {
+    const photo = this.selected();
+    if (!photo) return;
+    await this.run(async () => {
+      const found = await this.ai.transcribe(await this.photos.blob(photo.id, photo.rotation));
+      if (!found) {
+        this.snackBar.open('No se ha encontrado texto en la foto.', undefined, { duration: 5000 });
+        return;
+      }
+      const text = await reviewText(this.dialog, found);
+      if (text === undefined) return;
+      const entity = this.entity();
+      await this.store.update(entity.id, {
+        notes: entity.notes ? `${entity.notes}\n\n${text}` : text,
+      });
+      this.snackBar.open('Texto añadido a las notas', undefined, { duration: 4000 });
+    });
+  }
+
+  /**
+   * Reconoce con la IA del dispositivo los objetos de la foto de un contenedor
+   * y añade los que el usuario elija. Los que ya parecen estar dentro se
+   * ofrecen sin marcar, para no duplicarlos.
+   */
+  protected async recognizeObjects(): Promise<void> {
+    const photo = this.selected();
+    const container = this.entity();
+    if (!photo || container.kind !== 'container') return;
+    await this.run(async () => {
+      const names = await this.ai.recognize(await this.photos.blob(photo.id, photo.rotation));
+      if (names.length === 0) {
+        this.snackBar.open('No se ha reconocido ningún objeto en la foto.', undefined, {
+          duration: 5000,
+        });
+        return;
+      }
+      const present = new Set(
+        this.store.children(container.id).map((child) => comparableName(child.name)),
+      );
+      const chosen = await chooseItems(this.dialog, {
+        container: container.name,
+        items: names.map((name) => ({ name, existing: present.has(comparableName(name)) })),
+      });
+      if (!chosen?.length) return;
+      for (const name of chosen) await this.store.addItem({ name, parentId: container.id });
+      this.snackBar.open(
+        chosen.length === 1 ? 'Añadido 1 objeto' : `Añadidos ${chosen.length} objetos`,
+        undefined,
+        { duration: 4000 },
+      );
+    });
+  }
+
   protected retry(): void {
     const photo = this.selected();
     if (photo) this.load(photo);
@@ -242,7 +300,10 @@ export class EntityPhoto {
     try {
       await action();
     } catch (error) {
-      this.snackBar.open(inventoryErrorMessage(error), 'Cerrar');
+      this.snackBar.open(
+        error instanceof LocalAiError ? error.message : inventoryErrorMessage(error),
+        'Cerrar',
+      );
     } finally {
       this.busy.set(false);
     }

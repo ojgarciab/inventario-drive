@@ -484,6 +484,48 @@ solo icono llevan etiqueta.
   importación (con una prueba que importa ese mismo ejemplo). Se mantiene a
   mano.
 
+### 5.5.3 IA en el dispositivo (experimental)
+
+- **Qué es** (`core/ai/local-ai.ts`): la Prompt API de Chrome (`LanguageModel`),
+  estable para páginas web desde Chrome 148, ejecuta Gemini Nano en el propio
+  ordenador. Requisitos según su documentación: Windows 10/11, macOS 13+,
+  Linux o Chromebook Plus; 22 GB libres; GPU con más de 4 GB de VRAM, o
+  16 GB de RAM y 4 núcleos; conexión sin límite para la descarga inicial. No
+  existe en Android ni en iOS, ni en Web Workers.
+- **Activación**: desactivada por defecto; se activa en Ajustes y la
+  preferencia es local del dispositivo (`localStorage`, `inventario.ia`). La
+  descarga del modelo debe pedirse desde una pulsación del usuario.
+- **Usos**: «Leer texto» (transcribe el texto de una foto y lo añade a las
+  notas) y, en contenedores, «Reconocer objetos» (propone objetos para añadir
+  al contenedor, con salida estructurada por `responseConstraint`). En ambos
+  casos se muestra el resultado en un diálogo para revisarlo antes de
+  guardar. Los objetos que ya parecen estar en el contenedor (comparando sin
+  mayúsculas, acentos ni plurales) se ofrecen sin marcar.
+- **Idioma**: se pide español, pero en Chrome 152 `availability()` devolvió
+  «unavailable» declarando español y «downloadable» con inglés o sin idioma.
+  Por eso se prueban tres combinaciones (español, inglés, sin idioma) y se
+  avisa en Ajustes si no se pudo usar español.
+- **Descarga**: la gestiona Chrome como un componente (en Chrome 157,
+  `nano_v3_gpu_component`, de 4,0 GB). La aplicación solo puede pedirla y
+  preguntar el estado cada 5 s. Chrome descarga el paquete en la carpeta
+  temporal del sistema antes de instalarlo en el perfil: **si ahí no cabe,
+  no empieza la descarga y no da ningún error**: `availability()` responde
+  «downloading» indefinidamente, el componente aparece con «Error de
+  actualización» en `chrome://components` y el registro de red muestra la
+  consulta al servidor sin descarga posterior. Ocurrió en la primera prueba
+  real (Linux, `/tmp` con 2,6 GB libres) y se resolvió abriendo Chrome con
+  `TMPDIR` apuntando a un disco con espacio. Los 22 GB libres que pide la
+  documentación se refieren al disco del perfil, no a la carpeta temporal.
+  El avance real se ve en `chrome://on-device-internals` → «Broker State».
+- **Sin verificar**: no se ha ejecutado ninguna inferencia real (hace falta
+  descargar el modelo en un equipo que cumpla los requisitos). La calidad de
+  la transcripción y del reconocimiento está por comprobar.
+- **Ideas pendientes** (no implementadas): órdenes en lenguaje natural para
+  tareas repetitivas («crea cajas del 1 al 10»), mostrando el plan antes de
+  ejecutarlo; búsqueda que entienda sinónimos; proponer nombre y etiquetas a
+  partir de una foto al crear un objeto; detectar duplicados; resumir el
+  contenido de un contenedor.
+
 ### 5.6 PWA y service worker
 
 - `manifest.webmanifest`: `display: standalone`, iconos 192/512 normales y
