@@ -395,7 +395,8 @@ interface Item      extends BaseEntity { kind: 'item'; quantity: number; }
 | `/buscar` | Búsqueda por nombre, notas y etiquetas; cada resultado muestra su ruta completa |
 | `/sin-ubicar` | Entidades huérfanas o en ciclo |
 | `/papelera` | Restaurar o eliminar definitivamente |
-| `/ajustes` | Tipos de contenedor, exportación de datos (JSON) e imágenes (ZIP), importación, sesión |
+| `/almacenamiento` | Espacio que ocupa el inventario en Drive (barra con datos en verde y fotos en azul) y, debajo, exportación de datos (JSON) e imágenes (ZIP) e importación |
+| `/ajustes` | Tipos de contenedor e instalación de la aplicación |
 
 Pautas de interfaz: una columna (ancho máximo de 840 px, centrada en
 pantallas grandes), búsqueda y menú de cuenta en la barra superior, alta con
@@ -532,9 +533,20 @@ no tiene categoría PWA, así que la instalabilidad se comprueba a mano:
 manifiesto con nombre, `start_url`, `display` e iconos de 192 y 512 px, y
 service worker activo sobre HTTPS.
 
+### 7.0 Uso de espacio
+
+La pantalla Almacenamiento calcula lo que ocupa el inventario sumando
+`quotaBytesUsed` de todos los archivos de `appDataFolder` (`files.list` con
+solo ese campo y `appProperties`), separando las fotos (`k = f`) del resto.
+Los contenedores, objetos y tipos son archivos sin contenido y Drive les
+asigna 0 bytes de cuota (confirmado en la fase 0), así que en la práctica
+toda la barra es de fotos; el tramo verde de datos solo aparece si Drive
+llegara a contar algo. Como contexto se muestra el uso total de la cuenta
+(`about.get`, `storageQuota`); si esa consulta falla, se omite.
+
 ### 7.1 Copias de seguridad
 
-En Ajustes hay dos exportaciones y una importación:
+En Almacenamiento hay dos exportaciones y una importación:
 
 - **Datos en JSON** (`inventario-AAAA-MM-DD.json`): los tipos de contenedor y
   todas las entidades (contenedores y objetos, incluida la papelera), con sus

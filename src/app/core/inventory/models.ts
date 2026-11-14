@@ -106,6 +106,17 @@ export interface InventoryChanges {
   nextToken: string;
 }
 
+/** Espacio que ocupa el inventario en la cuota de Google Drive. */
+export interface StorageUsage {
+  /** Contenedores, objetos y tipos: archivos sin contenido, solo con metadatos. */
+  dataBytes: number;
+  dataFiles: number;
+  photoBytes: number;
+  photoFiles: number;
+  /** Uso total de la cuenta de Google; `null` si no se ha podido consultar. */
+  account: { usedBytes: number; limitBytes: number | null } | null;
+}
+
 export const NAME_MAX_LENGTH = 200;
 /** Drive admite 16 000 caracteres de 2 bytes en `description`; se deja margen. */
 export const NOTES_MAX_LENGTH = 8000;

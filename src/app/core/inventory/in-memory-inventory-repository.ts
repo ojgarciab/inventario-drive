@@ -13,6 +13,7 @@ import {
   Item,
   ItemDraft,
   Photo,
+  StorageUsage,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -38,6 +39,19 @@ export class InMemoryInventoryRepository extends InventoryRepository {
       entities: [...this.entities.values()],
       photos: [...this.photos.values()].map(({ photo }) => photo),
       changeToken: String(this.log.length),
+    };
+  }
+
+  async storageUsage(): Promise<StorageUsage> {
+    let photoBytes = 0;
+    for (const { image } of this.photos.values()) photoBytes += image.size;
+    return {
+      // Como en Drive, lo que solo tiene metadatos no ocupa espacio.
+      dataBytes: 0,
+      dataFiles: this.entities.size + this.types.size,
+      photoBytes,
+      photoFiles: this.photos.size,
+      account: null,
     };
   }
 

@@ -123,6 +123,45 @@ describe('DriveApi', () => {
     });
   });
 
+  it('lista lo que ocupa cada archivo recorriendo las páginas', async () => {
+    const result = api.listSizes();
+    const first = backend.expectOne((r) => r.url === FILES);
+    expect(first.request.params.get('spaces')).toBe('appDataFolder');
+    expect(first.request.params.get('fields')).toBe(
+      'nextPageToken,files(quotaBytesUsed,appProperties)',
+    );
+    first.flush({
+      nextPageToken: 'p2',
+      files: [
+        { quotaBytesUsed: '0', appProperties: { k: 'c' } },
+        { quotaBytesUsed: '204800', appProperties: { k: 'f', p: 'e1' } },
+      ],
+    });
+    await tick();
+    backend
+      .expectOne((r) => r.url === FILES && r.params.get('pageToken') === 'p2')
+      .flush({ files: [{ appProperties: { k: 'o' } }, { quotaBytesUsed: '77' }] });
+
+    expect(await result).toEqual([
+      { kind: 'c', bytes: 0 },
+      { kind: 'f', bytes: 204800 },
+      { kind: 'o', bytes: 0 },
+      { kind: '', bytes: 77 },
+    ]);
+  });
+
+  it('consulta el espacio usado y el tope de la cuenta', async () => {
+    const result = api.storageQuota();
+    const req = backend.expectOne((r) => r.url === 'https://www.googleapis.com/drive/v3/about');
+    expect(req.request.params.get('fields')).toBe('storageQuota(limit,usage)');
+    req.flush({ storageQuota: { limit: '16106127360', usage: '3435973836' } });
+    expect(await result).toEqual({ usedBytes: 3435973836, limitBytes: 16106127360 });
+
+    const unlimited = api.storageQuota();
+    backend.expectOne((r) => r.url.endsWith('/about')).flush({ storageQuota: { usage: '1024' } });
+    expect(await unlimited).toEqual({ usedBytes: 1024, limitBytes: null });
+  });
+
   it('reintenta los errores transitorios', async () => {
     const result = api.startPageToken();
     backend

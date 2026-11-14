@@ -26,6 +26,7 @@ import {
   Item,
   ItemDraft,
   Photo,
+  StorageUsage,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -42,6 +43,31 @@ export class DriveInventoryRepository extends InventoryRepository {
     const snapshot: InventorySnapshot = { types: [], entities: [], photos: [], changeToken };
     for (const file of await this.api.listAll()) classify(file, snapshot);
     return snapshot;
+  }
+
+  async storageUsage(): Promise<StorageUsage> {
+    const [sizes, account] = await Promise.all([
+      this.api.listSizes(),
+      // El uso de la cuenta es un dato de contexto: si falla, se muestra el resto.
+      this.api.storageQuota().catch(() => null),
+    ]);
+    const usage: StorageUsage = {
+      dataBytes: 0,
+      dataFiles: 0,
+      photoBytes: 0,
+      photoFiles: 0,
+      account,
+    };
+    for (const { kind, bytes } of sizes) {
+      if (kind === 'f') {
+        usage.photoBytes += bytes;
+        usage.photoFiles++;
+      } else {
+        usage.dataBytes += bytes;
+        usage.dataFiles++;
+      }
+    }
+    return usage;
   }
 
   async changesSince(token: string): Promise<InventoryChanges> {

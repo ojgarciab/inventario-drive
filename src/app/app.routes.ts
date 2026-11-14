@@ -61,6 +61,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/tags/tags').then((m) => m.Tags),
       },
       {
+        path: 'almacenamiento',
+        title: 'Almacenamiento',
+        loadComponent: () => import('./features/storage/storage').then((m) => m.Storage),
+      },
+      {
         path: 'ajustes',
         title: 'Ajustes',
         loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),

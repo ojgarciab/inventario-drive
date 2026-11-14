@@ -1,0 +1,120 @@
+<nav class="back"><a routerLink="/">‹ Inicio</a></nav>
+<h1>Almacenamiento</h1>
+
+<section aria-labelledby="usage-title">
+  <h2 id="usage-title">Espacio en Google Drive</h2>
+  @switch (usageState()) {
+    @case ('loading') {
+      <p class="hint" role="status">Calculando el espacio ocupado…</p>
+      <mat-progress-bar mode="indeterminate" />
+    }
+    @case ('error') {
+      <p class="error" role="alert">No se ha podido consultar el espacio ocupado.</p>
+      <button matButton="tonal" type="button" (click)="loadUsage()">Reintentar</button>
+    }
+    @case ('ready') {
+      @if (summary(); as s) {
+        <p class="total">
+          <strong>{{ s.total }}</strong> ocupa este inventario
+        </p>
+        <div
+          class="bar"
+          role="img"
+          [class.empty]="s.empty"
+          [attr.aria-label]="'Datos: ' + s.data.size + '. Fotografías: ' + s.photos.size + '.'"
+        >
+          @if (s.data.weight > 0) {
+            <span class="segment data" [style.flex-grow]="s.data.weight"></span>
+          }
+          @if (s.photos.weight > 0) {
+            <span class="segment photos" [style.flex-grow]="s.photos.weight"></span>
+          }
+        </div>
+        <ul class="legend">
+          <li class="data">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="name">Datos (contenedores, objetos y tipos)</span>
+            <span class="value">{{ s.data.size }} · {{ s.data.files }}</span>
+          </li>
+          <li class="photos">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="name">Fotografías</span>
+            <span class="value">{{ s.photos.size }} · {{ s.photos.files }}</span>
+          </li>
+        </ul>
+        @if (s.data.weight === 0) {
+          <p class="hint note">
+            Los datos no ocupan espacio: se guardan como archivos sin contenido, y Google Drive solo
+            cuenta el contenido. Lo único que consume cuota son las fotografías.
+          </p>
+        }
+        @if (s.account; as account) {
+          <p class="hint account">
+            La cuenta de Google tiene usados {{ account.used }}
+            @if (account.limit) {
+              de {{ account.limit }}
+            }
+            entre todos sus servicios.
+            @if (account.share) {
+              Este inventario supone el {{ account.share }} de ese espacio.
+            }
+          </p>
+        }
+      }
+    }
+  }
+</section>
+
+@if (task(); as t) {
+  <div class="task" role="status">
+    <mat-progress-bar [mode]="t.total > 0 ? 'determinate' : 'indeterminate'" [value]="percent()" />
+    <span>
+      {{ t.label }}
+      @if (t.total > 0) {
+        {{ t.done }} de {{ t.total }}
+      }
+    </span>
+  </div>
+}
+
+<section aria-labelledby="backup-title">
+  <h2 id="backup-title">Copia de seguridad</h2>
+  <p class="hint">
+    El inventario tiene {{ counts().containers }} contenedores y {{ counts().items }} objetos. La
+    copia se guarda en este dispositivo; consérvela donde prefiera.
+  </p>
+  <div class="buttons">
+    <button matButton="tonal" type="button" class="json" [disabled]="busy()" (click)="exportJson()">
+      <mat-icon>data_object</mat-icon>
+      Exportar datos (JSON)
+    </button>
+    <button matButton="tonal" type="button" class="zip" [disabled]="busy()" (click)="exportZip()">
+      <mat-icon>folder_zip</mat-icon>
+      Exportar datos e imágenes (ZIP)
+    </button>
+  </div>
+  <p class="hint">
+    El JSON contiene solo los datos. El ZIP contiene esos mismos datos y además todas las
+    fotografías.
+  </p>
+</section>
+
+<section aria-labelledby="import-title">
+  <h2 id="import-title">Importar una copia</h2>
+  <p class="hint">
+    Añade al inventario el contenido de un archivo JSON o ZIP exportado desde aquí. No borra nada de
+    lo que ya hay.
+  </p>
+  <button matButton="tonal" type="button" [disabled]="busy()" (click)="file.click()">
+    <mat-icon>upload_file</mat-icon>
+    Elegir archivo…
+  </button>
+  <input
+    #file
+    hidden
+    type="file"
+    accept=".json,.zip,application/json,application/zip"
+    aria-label="Archivo de copia de seguridad"
+    (change)="importFile(file)"
+  />
+</section>

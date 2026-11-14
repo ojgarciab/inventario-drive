@@ -1,0 +1,142 @@
+:host {
+  // Verde para los datos y azul para las fotos, legibles en ambos temas.
+  --usage-data: light-dark(#2e7d32, #81c995);
+  --usage-photos: light-dark(#1a73e8, #8ab4f8);
+
+  display: block;
+}
+
+h1 {
+  font: var(--mat-sys-headline-small);
+  margin: 0;
+}
+
+h2 {
+  font: var(--mat-sys-title-medium);
+  margin: 0;
+}
+
+section {
+  margin-top: 28px;
+}
+
+.back a {
+  color: var(--mat-sys-primary);
+  display: inline-block;
+  padding: 8px 0;
+  text-decoration: none;
+}
+
+.hint {
+  color: var(--mat-sys-on-surface-variant);
+  margin: 4px 0 12px;
+}
+
+.error {
+  color: var(--mat-sys-error);
+}
+
+.total {
+  margin: 12px 0 8px;
+
+  strong {
+    font: var(--mat-sys-headline-small);
+    margin-right: 4px;
+  }
+}
+
+.bar {
+  background: var(--mat-sys-surface-container-highest);
+  border-radius: 8px;
+  display: flex;
+  gap: 2px;
+  height: 20px;
+  overflow: hidden;
+
+  // Sin nada que mostrar queda el carril vacío, con borde para que se vea.
+  &.empty {
+    border: 1px dashed var(--mat-sys-outline-variant);
+  }
+}
+
+.segment {
+  flex-basis: 0;
+  // Un tramo muy pequeño frente al otro sigue viéndose.
+  min-width: 6px;
+
+  &.data {
+    background: var(--usage-data);
+  }
+
+  &.photos {
+    background: var(--usage-photos);
+  }
+}
+
+.legend {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+
+  li {
+    align-items: baseline;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+  }
+
+  .dot {
+    align-self: center;
+    border-radius: 3px;
+    flex: none;
+    height: 12px;
+    width: 12px;
+  }
+
+  .data .dot {
+    background: var(--usage-data);
+  }
+
+  .photos .dot {
+    background: var(--usage-photos);
+  }
+
+  .name {
+    flex: 1 1 12rem;
+  }
+
+  .value {
+    color: var(--mat-sys-on-surface-variant);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.note {
+  margin-top: 12px;
+}
+
+.account {
+  margin-bottom: 0;
+}
+
+.task {
+  background: var(--mat-sys-surface-container);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 16px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+button[matButton] {
+  min-height: 44px;
+}

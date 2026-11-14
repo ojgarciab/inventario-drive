@@ -31,6 +31,18 @@ export interface DriveFilePatch {
   appProperties?: Record<string, string | null>;
 }
 
+/** Espacio que ocupa un archivo en la cuota de Drive. */
+export interface DriveFileSize {
+  /** Clase del archivo (`appProperties.k`); vacía si no la tiene. */
+  kind: string;
+  bytes: number;
+}
+
+interface RawFileSize {
+  quotaBytesUsed?: string;
+  appProperties?: Record<string, string>;
+}
+
 export interface DriveChange {
   fileId: string;
   removed: boolean;
@@ -141,6 +153,43 @@ export class DriveApi {
     await this.send(this.http.delete(`${API}/files/${encodeURIComponent(id)}`));
   }
 
+  /** Tamaño que ocupa cada archivo de la aplicación, con su clase (`appProperties.k`). */
+  async listSizes(): Promise<DriveFileSize[]> {
+    const sizes: DriveFileSize[] = [];
+    let pageToken: string | undefined;
+    do {
+      const page = await this.send(
+        this.http.get<{ nextPageToken?: string; files?: RawFileSize[] }>(`${API}/files`, {
+          params: {
+            spaces: SPACE,
+            pageSize: 1000,
+            fields: 'nextPageToken,files(quotaBytesUsed,appProperties)',
+            ...(pageToken ? { pageToken } : {}),
+          },
+        }),
+      );
+      for (const file of page.files ?? []) {
+        sizes.push({ kind: file.appProperties?.['k'] ?? '', bytes: toBytes(file.quotaBytesUsed) });
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken);
+    return sizes;
+  }
+
+  /** Espacio usado y disponible en la cuenta de Google; `limit` falta si no tiene tope. */
+  async storageQuota(): Promise<{ usedBytes: number; limitBytes: number | null }> {
+    const about = await this.send(
+      this.http.get<{ storageQuota?: { limit?: string; usage?: string } }>(`${API}/about`, {
+        params: { fields: 'storageQuota(limit,usage)' },
+      }),
+    );
+    const limit = about.storageQuota?.limit;
+    return {
+      usedBytes: toBytes(about.storageQuota?.usage),
+      limitBytes: limit === undefined ? null : toBytes(limit),
+    };
+  }
+
   async startPageToken(): Promise<string> {
     const response = await this.send(
       this.http.get<{ startPageToken: string }>(`${API}/changes/startPageToken`),
@@ -193,4 +242,10 @@ export function isTransient(error: unknown): boolean {
   const reason = (error.error as { error?: { errors?: { reason?: string }[] } } | null)?.error
     ?.errors?.[0]?.reason;
   return reason === 'rateLimitExceeded' || reason === 'userRateLimitExceeded';
+}
+
+/** Drive devuelve los tamaños como texto. */
+function toBytes(value: string | undefined): number {
+  const bytes = Number(value);
+  return Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
 }

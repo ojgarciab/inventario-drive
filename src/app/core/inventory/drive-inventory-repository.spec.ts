@@ -16,6 +16,8 @@ describe('DriveInventoryRepository', () => {
     listAll: vi.fn(),
     listChanges: vi.fn(),
     update: vi.fn(),
+    listSizes: vi.fn(),
+    storageQuota: vi.fn(),
   };
   let repository: DriveInventoryRepository;
 
@@ -71,6 +73,32 @@ describe('DriveInventoryRepository', () => {
     expect(changes.types.map((t) => t.id)).toEqual(['tipo']);
     expect(changes.photos).toMatchObject([{ id: 'foto', entityId: 'caja' }]);
     expect(changes.removedIds).toEqual(['borrado', 'sin-archivo']);
+  });
+
+  it('suma el espacio de las fotos por un lado y el del resto de archivos por otro', async () => {
+    api.listSizes.mockResolvedValue([
+      { kind: 'c', bytes: 0 },
+      { kind: 'o', bytes: 0 },
+      { kind: 't', bytes: 0 },
+      { kind: 'f', bytes: 300 },
+      { kind: 'f', bytes: 700 },
+      { kind: '', bytes: 5 },
+    ]);
+    api.storageQuota.mockResolvedValue({ usedBytes: 4000, limitBytes: 16000 });
+
+    expect(await repository.storageUsage()).toEqual({
+      dataBytes: 5,
+      dataFiles: 4,
+      photoBytes: 1000,
+      photoFiles: 2,
+      account: { usedBytes: 4000, limitBytes: 16000 },
+    });
+  });
+
+  it('si no se puede consultar la cuenta, informa igualmente del espacio del inventario', async () => {
+    api.listSizes.mockResolvedValue([{ kind: 'f', bytes: 10 }]);
+    api.storageQuota.mockRejectedValue(new Error('sin permiso'));
+    expect(await repository.storageUsage()).toMatchObject({ photoBytes: 10, account: null });
   });
 
   it('girar una foto cambia solo su metadato de giro, sin tocar la imagen', async () => {

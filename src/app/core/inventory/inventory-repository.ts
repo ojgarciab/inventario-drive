@@ -10,6 +10,7 @@ import {
   Item,
   ItemDraft,
   Photo,
+  StorageUsage,
   TypeChanges,
   TypeDraft,
 } from './models';
@@ -20,6 +21,8 @@ import {
  */
 export abstract class InventoryRepository {
   abstract loadAll(): Promise<InventorySnapshot>;
+  /** Espacio que ocupa el inventario en el almacenamiento. */
+  abstract storageUsage(): Promise<StorageUsage>;
   /** Cambios hechos desde cualquier dispositivo a partir de `token`. */
   abstract changesSince(token: string): Promise<InventoryChanges>;
   abstract createContainer(draft: ContainerDraft): Promise<Container>;
