@@ -1,5 +1,14 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Injectable,
+  InjectionToken,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { Connectivity } from '../pwa/connectivity';
+import { InventoryCache } from './inventory-cache';
 import { InventoryRepository } from './inventory-repository';
 import {
   Container,
@@ -37,15 +46,25 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Consultas de cambios fallidas seguidas tras las que se recarga todo el inventario. */
 const MAX_SYNC_FAILURES = 3;
 
+/** Espera tras un cambio antes de guardar la copia local, para agrupar cambios seguidos. */
+export const INVENTORY_SAVE_DELAY_MS = new InjectionToken<number>('INVENTORY_SAVE_DELAY_MS', {
+  providedIn: 'root',
+  factory: () => 500,
+});
+
 /**
- * Estado del inventario. Vive solo en memoria: se carga entero de Drive en
- * cada arranque y nunca se guarda en el dispositivo. Las escrituras esperan
- * la confirmación de Drive antes de reflejarse.
+ * Estado del inventario. Se carga entero de Drive en cada arranque y las
+ * escrituras esperan la confirmación de Drive antes de reflejarse. Además se
+ * guarda una copia en el dispositivo, solo para consultarla cuando no se
+ * puede llegar a Drive (sin conexión o sin poder renovar la sesión): en ese
+ * caso el inventario se muestra tal como estaba en la última sincronización.
  */
 @Injectable({ providedIn: 'root' })
 export class InventoryStore {
   private readonly repository = inject(InventoryRepository);
   private readonly connectivity = inject(Connectivity);
+  private readonly cache = inject(InventoryCache);
+  private readonly saveDelayMs = inject(INVENTORY_SAVE_DELAY_MS);
 
   private readonly all = signal<ReadonlyMap<EntityId, Entity>>(new Map());
   private readonly allTypes = signal<readonly ContainerType[]>([]);
@@ -56,6 +75,37 @@ export class InventoryStore {
   private syncFailures = 0;
 
   readonly status = signal<StoreStatus>('idle');
+  /** Momento de la última sincronización con Drive; `null` si aún no ha habido ninguna. */
+  readonly syncedAt = signal<string | null>(null);
+  /**
+   * Indica que lo que se muestra es la copia guardada en el dispositivo (o
+   * datos que no se han podido confirmar con Drive) y puede estar anticuado.
+   */
+  readonly stale = signal(false);
+  /** Fotos que tiene el inventario, entre todas las entidades. */
+  readonly photoCount = computed(() => this.allPhotos().size);
+  private saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+  constructor() {
+    // Cada cambio se refleja poco después en la copia del dispositivo.
+    effect(() => {
+      const syncedAt = this.syncedAt();
+      if (this.status() !== 'ready' || syncedAt === null) return;
+      const copy = {
+        syncedAt,
+        types: [...this.allTypes()],
+        entities: [...this.all().values()],
+        photos: [...this.allPhotos().values()],
+      };
+      clearTimeout(this.saveTimer);
+      this.saveTimer = setTimeout(() => {
+        if (this.changeToken !== null) {
+          void this.cache.save({ ...copy, changeToken: this.changeToken });
+        }
+      }, this.saveDelayMs);
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.saveTimer));
+  }
 
   /** Entidades no borradas, por id. */
   private readonly active = computed(() => {
@@ -111,7 +161,10 @@ export class InventoryStore {
   }
 
   private async loadOnce(): Promise<void> {
-    this.status.set('loading');
+    // Si ya hay datos a la vista (de la copia local o de una carga anterior)
+    // se siguen mostrando mientras llegan los nuevos.
+    const hadData = this.status() === 'ready';
+    if (!hadData) this.status.set('loading');
     try {
       const snapshot = await this.repository.loadAll();
       let types = snapshot.types;
@@ -124,13 +177,42 @@ export class InventoryStore {
       this.allPhotos.set(new Map(snapshot.photos.map((photo) => [photo.id, photo])));
       this.changeToken = snapshot.changeToken;
       this.syncFailures = 0;
+      this.markSynced();
       this.status.set('ready');
       // La limpieza de la papelera no debe impedir usar la aplicación si falla.
       this.purgeExpired().catch(() => undefined);
     } catch (error) {
+      // Sin poder llegar a Drive se trabaja con lo que haya en el dispositivo.
+      if (hadData || (await this.showLocalCopy())) {
+        this.stale.set(true);
+        return;
+      }
       this.status.set('error');
       throw error;
     }
+  }
+
+  /**
+   * Muestra la copia del inventario guardada en el dispositivo, sin consultar
+   * Drive. Devuelve `false` si no hay ninguna.
+   */
+  async showLocalCopy(): Promise<boolean> {
+    if (this.status() === 'ready') return true;
+    const copy = await this.cache.load();
+    if (!copy) return false;
+    this.all.set(new Map(copy.entities.map((entity) => [entity.id, entity])));
+    this.allTypes.set(copy.types);
+    this.allPhotos.set(new Map(copy.photos.map((photo) => [photo.id, photo])));
+    this.changeToken = copy.changeToken;
+    this.syncedAt.set(copy.syncedAt);
+    this.stale.set(true);
+    this.status.set('ready');
+    return true;
+  }
+
+  private markSynced(): void {
+    this.syncedAt.set(new Date().toISOString());
+    this.stale.set(false);
   }
 
   /**
@@ -150,7 +232,9 @@ export class InventoryStore {
       this.applyRemote(changes);
       this.changeToken = changes.nextToken;
       this.syncFailures = 0;
+      this.markSynced();
     } catch {
+      if (!this.connectivity.online()) this.stale.set(true);
       if (++this.syncFailures >= MAX_SYNC_FAILURES && this.connectivity.online()) {
         this.syncFailures = 0;
         await this.load().catch(() => undefined);
@@ -158,10 +242,14 @@ export class InventoryStore {
     }
   }
 
-  /** Vacía el almacén, por ejemplo al cerrar la sesión. */
+  /** Vacía el almacén y borra su copia del dispositivo, por ejemplo al cerrar la sesión. */
   reset(): void {
+    clearTimeout(this.saveTimer);
+    void this.cache.clear(); // la copia del dispositivo es de la cuenta que sale
     this.changeToken = null;
     this.syncFailures = 0;
+    this.syncedAt.set(null);
+    this.stale.set(false);
     this.all.set(new Map());
     this.allTypes.set([]);
     this.allPhotos.set(new Map());

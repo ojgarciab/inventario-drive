@@ -5,6 +5,7 @@ import { App } from './app';
 import { AuthService, AuthStatus, UserProfile } from './core/auth/auth-service';
 import { InMemoryInventoryRepository } from './core/inventory/in-memory-inventory-repository';
 import { InventoryRepository } from './core/inventory/inventory-repository';
+import { CachedInventory, InventoryCache } from './core/inventory/inventory-cache';
 import { InventoryStore } from './core/inventory/inventory-store';
 import { Connectivity } from './core/pwa/connectivity';
 
@@ -249,5 +250,119 @@ describe('App', () => {
     expect(skip?.textContent).toBe('Saltar al contenido');
     skip?.click();
     expect(document.activeElement).toBe(el.querySelector('main'));
+  });
+
+  describe('sin poder llegar a Drive', () => {
+    const copy: CachedInventory = {
+      syncedAt: '2026-11-14T15:40:00.000Z',
+      changeToken: '0',
+      types: [],
+      entities: [
+        {
+          kind: 'item',
+          id: 'o1',
+          name: 'Pilas',
+          notes: '',
+          parentId: null,
+          photoId: null,
+          tags: [],
+          quantity: 1,
+          createdAt: '',
+          modifiedAt: '2026-11-14T15:00:00.000Z',
+          deletedAt: null,
+        },
+      ],
+      photos: [],
+    };
+    const withCopy = (saved: CachedInventory | null) =>
+      TestBed.overrideProvider(InventoryCache, {
+        useValue: {
+          load: async () => saved,
+          save: async () => undefined,
+          clear: async () => undefined,
+        },
+      });
+    const notice = (el: HTMLElement) =>
+      el.querySelector('.offline span')?.textContent?.trim() ?? '';
+
+    afterEach(() => online.set(true));
+
+    it('sin conexión arranca con la copia del dispositivo y lo indica, sin consultar Drive', async () => {
+      status.set('signedIn');
+      user.set(casa);
+      online.set(false);
+      withCopy(copy);
+      const repository = new InMemoryInventoryRepository();
+      const loadAll = vi.spyOn(repository, 'loadAll');
+
+      const { el, store } = await render(repository);
+
+      expect(loadAll).not.toHaveBeenCalled();
+      expect(store.status()).toBe('ready');
+      expect(store.search('pilas').length).toBe(1);
+      expect(el.querySelector('router-outlet')).not.toBeNull();
+      expect(notice(el)).toMatch(
+        /^Sin conexión\. Está viendo la copia guardada en este dispositivo, del 14 nov/,
+      );
+      expect(notice(el)).toContain('No se pueden hacer cambios');
+    });
+
+    it('con la sesión caducada también deja navegar con la copia', async () => {
+      status.set('expired');
+      user.set(casa);
+      withCopy(copy);
+      const repository = new InMemoryInventoryRepository();
+      const loadAll = vi.spyOn(repository, 'loadAll');
+
+      const { el, store } = await render(repository);
+
+      expect(loadAll).not.toHaveBeenCalled();
+      expect(store.status()).toBe('ready');
+      expect(el.querySelector('router-outlet')).not.toBeNull();
+      expect(notice(el)).toContain('No se ha podido sincronizar con Google Drive');
+      expect(el.querySelector('.resume')).not.toBeNull(); // sigue ofreciendo reanudar
+    });
+
+    it('sin conexión no ofrece reanudar la sesión: no se podría', async () => {
+      status.set('expired');
+      user.set(casa);
+      online.set(false);
+      withCopy(copy);
+      const { el } = await render();
+      expect(el.querySelector('.resume')).toBeNull();
+      el.click();
+      expect(signIn).not.toHaveBeenCalled();
+    });
+
+    it('al recuperar la conexión se pone al día con Drive y quita el aviso', async () => {
+      status.set('signedIn');
+      user.set(casa);
+      online.set(false);
+      withCopy(copy);
+      const repository = new InMemoryInventoryRepository();
+      await repository.createItem({ name: 'Paraguas' });
+      const { el, settle, store } = await render(repository);
+      expect(store.search('paraguas')).toEqual([]);
+
+      online.set(true);
+      await settle();
+
+      expect(store.stale()).toBe(false);
+      expect(store.search('paraguas').length).toBe(1);
+      expect(el.querySelector('.offline')).toBeNull();
+    });
+
+    it('sin conexión y sin copia explica que hay que conectarse', async () => {
+      status.set('signedIn');
+      user.set(casa);
+      online.set(false);
+      withCopy(null);
+      const { el, store } = await render();
+      expect(store.status()).toBe('idle');
+      expect(el.querySelector('router-outlet')).toBeNull();
+      expect(el.querySelector('.load-error')?.textContent).toContain(
+        'todavía no tiene guardada una copia',
+      );
+    });
   });
 });

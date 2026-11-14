@@ -26,7 +26,7 @@
           type="button"
           class="rotate-left"
           aria-label="Girar a la izquierda"
-          [disabled]="busy()"
+          [disabled]="busy() || !online()"
           (click)="rotate(-1)"
         >
           <mat-icon>rotate_90_degrees_ccw</mat-icon>
@@ -36,7 +36,7 @@
           type="button"
           class="rotate-right"
           aria-label="Girar a la derecha"
-          [disabled]="busy()"
+          [disabled]="busy() || !online()"
           (click)="rotate(1)"
         >
           <mat-icon>rotate_90_degrees_cw</mat-icon>
@@ -108,22 +108,34 @@
 }
 
 <div class="actions">
-  <button matButton type="button" [disabled]="busy()" (click)="camera.click()">
+  <button matButton type="button" [disabled]="busy() || !online()" (click)="camera.click()">
     <mat-icon>photo_camera</mat-icon>
     Hacer foto
   </button>
-  <button matButton type="button" [disabled]="busy()" (click)="library.click()">
+  <button matButton type="button" [disabled]="busy() || !online()" (click)="library.click()">
     <mat-icon>image</mat-icon>
     Galería
   </button>
   @if (selectedId()) {
     @if (selectedId() !== featuredId()) {
-      <button matButton type="button" class="feature" [disabled]="busy()" (click)="feature()">
+      <button
+        matButton
+        type="button"
+        class="feature"
+        [disabled]="busy() || !online()"
+        (click)="feature()"
+      >
         <mat-icon>star</mat-icon>
         Destacar
       </button>
     }
-    <button matButton type="button" class="remove" [disabled]="busy()" (click)="remove()">
+    <button
+      matButton
+      type="button"
+      class="remove"
+      [disabled]="busy() || !online()"
+      (click)="remove()"
+    >
       <mat-icon>hide_image</mat-icon>
       Quitar
     </button>

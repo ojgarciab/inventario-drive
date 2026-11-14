@@ -63,7 +63,7 @@
         matButton="filled"
         type="button"
         class="confirm"
-        [disabled]="isCurrent() || saving()"
+        [disabled]="isCurrent() || saving() || !online()"
         (click)="confirm()"
       >
         {{ isCurrent() ? 'Ya está aquí' : 'Mover a ' + destinationName() }}

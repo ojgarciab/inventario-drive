@@ -67,7 +67,7 @@
 
     <div class="actions">
       <a matButton [routerLink]="cancelLink()">Cancelar</a>
-      <button matButton="filled" type="submit" [disabled]="saving()">Guardar</button>
+      <button matButton="filled" type="submit" [disabled]="saving() || !online()">Guardar</button>
     </div>
   </form>
 }

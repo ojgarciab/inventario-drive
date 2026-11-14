@@ -8,9 +8,12 @@ import { RouterLink } from '@angular/router';
 import { BackupError } from '../../core/backup/backup-format';
 import { BackupService } from '../../core/backup/backup-service';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
+import { InventoryCache } from '../../core/inventory/inventory-cache';
 import { InventoryRepository } from '../../core/inventory/inventory-repository';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { StorageUsage } from '../../core/inventory/models';
+import { Connectivity } from '../../core/pwa/connectivity';
+import { PhotoService } from '../../core/photos/photo-service';
 import { confirm } from '../../shared/confirm-dialog';
 import { DOWNLOADER } from '../../shared/download';
 import { formatBytes, formatPercent } from './format-bytes';
@@ -23,9 +26,24 @@ interface Task {
 
 type UsageState = 'loading' | 'ready' | 'error';
 
+/** Lo que la aplicación tiene guardado en este dispositivo. */
+interface DeviceUsage {
+  /** Copia del inventario; `null` si todavía no se ha guardado ninguna. */
+  dataBytes: number | null;
+  photoBytes: number;
+  photoCount: number;
+  /** Todo lo que ocupa la aplicación según el navegador, incluidos sus propios archivos. */
+  totalBytes: number | null;
+}
+
+const SYNC_DATE = new Intl.DateTimeFormat('es', { dateStyle: 'medium', timeStyle: 'short' });
+
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/** Almacenamiento: espacio que ocupa el inventario en Drive y copias de seguridad. */
+/**
+ * Almacenamiento: espacio que ocupa el inventario en Drive, lo que hay guardado
+ * en el dispositivo para usarlo sin conexión, y copias de seguridad.
+ */
 @Component({
   imports: [MatButtonModule, MatIconModule, MatProgressBarModule, RouterLink],
   selector: 'app-storage',
@@ -35,10 +53,14 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 export class Storage {
   private readonly repository = inject(InventoryRepository);
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly backups = inject(BackupService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly download = inject(DOWNLOADER);
+  private readonly cache = inject(InventoryCache);
+  private readonly photos = inject(PhotoService);
 
   protected readonly counts = this.store.counts;
   protected readonly usageState = signal<UsageState>('loading');
@@ -72,6 +94,35 @@ export class Storage {
     };
   });
 
+  private readonly device = signal<DeviceUsage | null>(null);
+  /** Datos de la barra de lo guardado en el dispositivo para usarlo sin conexión. */
+  protected readonly deviceSummary = computed(() => {
+    const device = this.device();
+    if (!device) return null;
+    const dataBytes = device.dataBytes ?? 0;
+    const syncedAt = this.store.syncedAt();
+    return {
+      total: formatBytes(dataBytes + device.photoBytes),
+      empty: dataBytes + device.photoBytes === 0,
+      data: {
+        size: formatBytes(dataBytes),
+        detail:
+          device.dataBytes === null
+            ? 'todavía no hay copia'
+            : syncedAt
+              ? `sincronizada el ${SYNC_DATE.format(new Date(syncedAt))}`
+              : 'guardada',
+        weight: dataBytes,
+      },
+      photos: {
+        size: formatBytes(device.photoBytes),
+        detail: `${device.photoCount} de ${plural(this.store.photoCount(), 'fotografía', 'fotografías')}`,
+        weight: device.photoBytes,
+      },
+      appTotal: device.totalBytes === null ? null : formatBytes(device.totalBytes),
+    };
+  });
+
   /** Operación larga en curso; mientras dura no se puede iniciar otra. */
   protected readonly task = signal<Task | null>(null);
   protected readonly busy = computed(() => this.task() !== null);
@@ -82,6 +133,20 @@ export class Storage {
 
   constructor() {
     void this.loadUsage();
+    void this.loadDeviceUsage();
+  }
+
+  private async loadDeviceUsage(): Promise<void> {
+    const [dataBytes, photos, totalBytes] = await Promise.all([
+      this.cache.size(),
+      this.photos.cacheUsage(),
+      // No todos los navegadores informan de cuánto ocupa el sitio.
+      navigator.storage
+        ?.estimate?.()
+        .then((estimate) => estimate.usage ?? null)
+        .catch(() => null) ?? Promise.resolve(null),
+    ]);
+    this.device.set({ dataBytes, photoBytes: photos.bytes, photoCount: photos.count, totalBytes });
   }
 
   protected async loadUsage(): Promise<void> {

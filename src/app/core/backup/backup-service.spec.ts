@@ -158,6 +158,47 @@ describe('BackupService', () => {
     expect(await text(await target.photos.blob(photo?.id as string))).toBe(`GIRADA1:${original}`);
   });
 
+  it('al exportar no vuelve a descargar las fotos que ya están en la caché del dispositivo', async () => {
+    // Caché del navegador simulada, con una Response que conserva el contenido.
+    const cached = new Map<string, Blob>();
+    vi.stubGlobal(
+      'Response',
+      class {
+        constructor(private readonly body: Blob) {}
+        blob = async () => this.body;
+      },
+    );
+    vi.stubGlobal('caches', {
+      open: async () => ({
+        match: async (key: string) => (cached.has(key) ? new Response(cached.get(key)) : undefined),
+        put: async (key: string, response: Response) => void cached.set(key, await response.blob()),
+        delete: async (key: string) => cached.delete(key),
+      }),
+    });
+    try {
+      const app = await setup();
+      await populate(app); // sube varias fotos, que quedan en la caché
+      const pendiente = await app.store.addItem({ name: 'Sin ver' });
+      // Una foto subida desde otro dispositivo: aquí aún no se ha visto.
+      app.store.photoAdded(await app.repository.uploadPhoto(pendiente.id, new Blob(['AJENA'])));
+      const download = vi.spyOn(app.repository, 'downloadPhoto');
+
+      const zip = await app.backups.exportZip();
+      expect(download).toHaveBeenCalledTimes(1); // solo la que faltaba
+      // El ZIP lleva el archivo de datos y todas las fotos, vinieran de donde vinieran.
+      expect((await readZip(new Uint8Array(await zip.arrayBuffer()))).size).toBe(
+        1 + app.store.photoCount(),
+      );
+
+      // Exportar otra vez ya no descarga nada: la que faltaba quedó guardada.
+      download.mockClear();
+      await app.backups.exportZip();
+      expect(download).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('no da por buena una copia si falta alguna fotografía', async () => {
     const app = await setup();
     await populate(app);

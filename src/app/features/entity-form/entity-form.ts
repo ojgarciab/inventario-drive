@@ -8,6 +8,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore } from '../../core/inventory/inventory-store';
+import { Connectivity } from '../../core/pwa/connectivity';
 import {
   Entity,
   EntityChanges,
@@ -59,6 +60,8 @@ const splitTags = (tags: string) =>
 })
 export class EntityForm implements OnInit {
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly router = inject(Router);
 
   /** Clase de entidad, fijada en la definición de la ruta. */

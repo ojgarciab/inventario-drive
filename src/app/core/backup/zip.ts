@@ -1,6 +1,6 @@
 // Lectura y escritura mínimas de archivos ZIP, suficientes para las copias de
 // seguridad. Se escribe sin compresión: el contenido son JPEG, que ya están
-// comprimidos. Se leen también los ZIP comprimidos con «deflate», por si la
+// comprimidos, y así cada archivo se puede incluir tal cual, sin procesarlo. Se leen también los ZIP comprimidos con «deflate», por si la
 // copia se ha vuelto a empaquetar con otra herramienta.
 
 export interface ZipEntry {
@@ -36,31 +36,63 @@ export function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-/** Empaqueta los archivos en un ZIP sin compresión. */
+/** Archivo que se añade al ZIP sin cargarlo entero: se toma del disco al escribir. */
+export interface ZipBlobEntry {
+  name: string;
+  data: Blob;
+}
+
+/** Empaqueta en memoria los archivos en un ZIP sin compresión. */
 export function createZip(entries: ZipEntry[], date = new Date()): Uint8Array {
-  if (entries.length > MAX_ENTRIES) throw new Error('Demasiados archivos para un ZIP');
-  const time = (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
-  const day =
-    ((Math.max(1980, date.getFullYear()) - 1980) << 9) |
-    ((date.getMonth() + 1) << 5) |
-    date.getDate();
+  const writer = new ZipWriter(date);
+  for (const entry of entries)
+    writer.add(entry.name, entry.data as BlobPart, crc32(entry.data), entry.data.length);
+  return concat(writer.finish() as Uint8Array[]);
+}
 
-  const chunks: Uint8Array[] = [];
-  const central: Uint8Array[] = [];
-  let offset = 0;
-
+/**
+ * Empaqueta los archivos en un ZIP sin compresión, sin tenerlos todos en
+ * memoria a la vez: cada uno se lee solo para calcular su suma de
+ * comprobación y en el resultado queda como referencia a su contenido (por
+ * ejemplo, el de la caché del dispositivo), que el navegador copia al guardar.
+ */
+export async function createZipBlob(entries: ZipBlobEntry[], date = new Date()): Promise<Blob> {
+  const writer = new ZipWriter(date);
   for (const entry of entries) {
-    const name = encoder.encode(entry.name);
-    const crc = crc32(entry.data);
-    const size = entry.data.length;
+    const crc = crc32(new Uint8Array(await entry.data.arrayBuffer()));
+    writer.add(entry.name, entry.data, crc, entry.data.size);
+  }
+  return new Blob(writer.finish(), { type: 'application/zip' });
+}
+
+/** Construye las cabeceras de un ZIP sin compresión alrededor de los contenidos. */
+class ZipWriter {
+  private readonly parts: BlobPart[] = [];
+  private readonly central: Uint8Array[] = [];
+  private readonly time: number;
+  private readonly day: number;
+  private offset = 0;
+  private count = 0;
+
+  constructor(date: Date) {
+    this.time = (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
+    this.day =
+      ((Math.max(1980, date.getFullYear()) - 1980) << 9) |
+      ((date.getMonth() + 1) << 5) |
+      date.getDate();
+  }
+
+  add(fileName: string, content: BlobPart, crc: number, size: number): void {
+    if (this.count >= MAX_ENTRIES) throw new Error('Demasiados archivos para un ZIP');
+    const name = encoder.encode(fileName);
 
     const local = new DataView(new ArrayBuffer(30));
     local.setUint32(0, LOCAL_SIGNATURE, true);
     local.setUint16(4, 20, true); // versión necesaria
     local.setUint16(6, UTF8_FLAG, true);
     local.setUint16(8, STORED, true);
-    local.setUint16(10, time, true);
-    local.setUint16(12, day, true);
+    local.setUint16(10, this.time, true);
+    local.setUint16(12, this.day, true);
     local.setUint32(14, crc, true);
     local.setUint32(18, size, true);
     local.setUint32(22, size, true);
@@ -72,31 +104,34 @@ export function createZip(entries: ZipEntry[], date = new Date()): Uint8Array {
     header.setUint16(6, 20, true);
     header.setUint16(8, UTF8_FLAG, true);
     header.setUint16(10, STORED, true);
-    header.setUint16(12, time, true);
-    header.setUint16(14, day, true);
+    header.setUint16(12, this.time, true);
+    header.setUint16(14, this.day, true);
     header.setUint32(16, crc, true);
     header.setUint32(20, size, true);
     header.setUint32(24, size, true);
     header.setUint16(28, name.length, true);
-    header.setUint32(42, offset, true);
+    header.setUint32(42, this.offset, true);
 
-    chunks.push(new Uint8Array(local.buffer), name, entry.data);
-    central.push(new Uint8Array(header.buffer), name);
-    offset += 30 + name.length + size;
+    this.parts.push(new Uint8Array(local.buffer), name as BlobPart, content);
+    this.central.push(new Uint8Array(header.buffer), name);
+    this.offset += 30 + name.length + size;
+    this.count++;
   }
 
-  const centralSize = central.reduce((total, chunk) => total + chunk.length, 0);
-  if (offset + centralSize > MAX_SIZE)
-    throw new Error('La copia supera el tamaño máximo de un ZIP');
-
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, END_SIGNATURE, true);
-  end.setUint16(8, entries.length, true);
-  end.setUint16(10, entries.length, true);
-  end.setUint32(12, centralSize, true);
-  end.setUint32(16, offset, true);
-
-  return concat([...chunks, ...central, new Uint8Array(end.buffer)]);
+  /** Devuelve las piezas del archivo completo, en orden. */
+  finish(): BlobPart[] {
+    const centralSize = this.central.reduce((total, chunk) => total + chunk.length, 0);
+    if (this.offset + centralSize > MAX_SIZE) {
+      throw new Error('La copia supera el tamaño máximo de un ZIP');
+    }
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, END_SIGNATURE, true);
+    end.setUint16(8, this.count, true);
+    end.setUint16(10, this.count, true);
+    end.setUint32(12, centralSize, true);
+    end.setUint32(16, this.offset, true);
+    return [...this.parts, ...(this.central as BlobPart[]), new Uint8Array(end.buffer)];
+  }
 }
 
 /** Devuelve los archivos de un ZIP, por nombre. */

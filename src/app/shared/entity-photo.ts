@@ -17,6 +17,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { inventoryErrorMessage } from '../core/inventory/inventory-messages';
 import { InventoryStore } from '../core/inventory/inventory-store';
 import { Entity, EntityId, Photo } from '../core/inventory/models';
+import { Connectivity } from '../core/pwa/connectivity';
 import { PhotoService } from '../core/photos/photo-service';
 import { confirm } from './confirm-dialog';
 
@@ -42,6 +43,8 @@ const DRAG_THRESHOLD_PX = 5;
 })
 export class EntityPhoto {
   private readonly photos = inject(PhotoService);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly store = inject(InventoryStore);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);

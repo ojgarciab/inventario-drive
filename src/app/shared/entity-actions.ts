@@ -8,6 +8,7 @@ import { Router, RouterLink } from '@angular/router';
 import { inventoryErrorMessage } from '../core/inventory/inventory-messages';
 import { InventoryStore } from '../core/inventory/inventory-store';
 import { Entity } from '../core/inventory/models';
+import { Connectivity } from '../core/pwa/connectivity';
 import { confirm } from './confirm-dialog';
 import { containerLink, entityLink } from './entity-links';
 
@@ -16,7 +17,13 @@ import { containerLink, entityLink } from './entity-links';
   imports: [MatButtonModule, MatIconModule, MatMenuModule, RouterLink],
   selector: 'app-entity-actions',
   template: `
-    <button matIconButton type="button" aria-label="Acciones" [matMenuTriggerFor]="menu">
+    <button
+      matIconButton
+      type="button"
+      aria-label="Acciones"
+      [disabled]="!online()"
+      [matMenuTriggerFor]="menu"
+    >
       <mat-icon>more_vert</mat-icon>
     </button>
     <mat-menu #menu="matMenu" xPosition="before">
@@ -37,6 +44,8 @@ import { containerLink, entityLink } from './entity-links';
 })
 export class EntityActions {
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);

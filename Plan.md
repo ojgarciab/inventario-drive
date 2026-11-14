@@ -18,7 +18,7 @@ navegador y los datos se guardan en la carpeta de datos de aplicación
 | Concurrencia | Escrituras atómicas por entidad (`PATCH`) + sondeo incremental con `changes.list` |
 | Autenticación | Google Identity Services (modelo de token, sin secreto de cliente) |
 | Permiso (scope) | Solo `https://www.googleapis.com/auth/drive.appdata` |
-| Caché local | Solo el *app shell* (service worker) y las fotografías. Nunca la estructura ni las ubicaciones |
+| Caché local | El *app shell* (service worker), las fotografías ya vistas y una copia del inventario **solo para consulta** sin conexión. Las escrituras van siempre contra Drive |
 | Hosting | GitHub Pages |
 
 ## 2. Estudio: ¿hoja de cálculo, árbol de directorios u otro método?
@@ -113,11 +113,15 @@ borrado; a cambio, la purga puede retrasarse si no hay actividad.
 
 ## 3. Funcionamiento simultáneo desde varios dispositivos
 
-Requisito: mínimo dos dispositivos a la vez, sin caché local de ubicaciones.
+Requisito: mínimo dos dispositivos a la vez. El requisito inicial excluía
+guardar en local las ubicaciones; se cambió (14-11-2026) para poder consultar
+el inventario sin conexión, con dos garantías: la copia local nunca se usa
+para escribir y siempre se indica de cuándo es (§3.2).
 
-1. **Sin estado persistente de datos**: el inventario vive solo en memoria
-   (almacén de *signals*). Cada arranque hace una carga completa con
-   `files.list` (`spaces=appDataFolder`, campos mínimos, paginado).
+1. **Drive es la única fuente de verdad**: el inventario se trabaja en
+   memoria (almacén de *signals*) y, con conexión, cada arranque hace una
+   carga completa con `files.list` (`spaces=appDataFolder`, campos mínimos,
+   paginado). La copia local solo se muestra cuando no se llega a Drive.
 2. **Sincronización incremental**: tras la carga se guarda un
    `startPageToken` y se consulta `changes.list` (`spaces=appDataFolder`):
    - cada 20 s mientras la aplicación esté visible;
@@ -146,9 +150,9 @@ Requisito: mínimo dos dispositivos a la vez, sin caché local de ubicaciones.
    un ciclo; al cargar y tras cada sondeo se valida el árbol y, si hay un
    ciclo o un padre inexistente, la entidad afectada se muestra en
    «Sin ubicar» para que el usuario la recoloque.
-6. **Sin conexión**: la aplicación es solo en línea. Sin red se muestra un
-   aviso y las escrituras se rechazan al momento; no hay cola de cambios
-   pendientes.
+6. **Sin conexión**: se puede consultar la copia local (§3.2), pero las
+   escrituras se rechazan al momento y sus botones se desactivan; no hay cola
+   de cambios pendientes.
 7. **Respuestas atrasadas**: una consulta de cambios pedida antes de una
    escritura propia puede llegar después de ella; nunca se sustituye una
    versión por otra con `modifiedTime` anterior.
@@ -172,6 +176,31 @@ inician sesión con esa cuenta. Consecuencias:
   que esa cuenta no se use para nada más.
 - Mientras la aplicación esté en estado *Prueba* en Google Cloud, basta con
   añadir esa única cuenta como usuario de prueba.
+
+### 3.2 Consulta sin conexión
+
+- **Qué se guarda**: tras cada carga y cada cambio, el almacén escribe (con
+  medio segundo de retardo, para agrupar) una copia del inventario en Cache
+  Storage (`inventario-datos`): tipos, entidades, fotos (solo sus metadatos),
+  la hora de la última sincronización y el punto de sincronización de Drive.
+  Las imágenes ya vistas están en `inventario-fotos` (§5.3).
+- **Cuándo se usa**: si al arrancar no hay conexión, o la sesión ha caducado
+  y no se puede renovar, se muestra la copia sin consultar Drive. Si la carga
+  de Drive falla, también. Con datos ya a la vista, un fallo de recarga los
+  conserva en lugar de mostrar un error.
+- **Cómo se indica**: un aviso bajo la cabecera dice que se está viendo la
+  copia del dispositivo y de qué fecha y hora es.
+- **Solo consulta**: sin conexión se desactivan añadir, editar, mover,
+  eliminar, la papelera, las fotos (añadir, quitar, destacar, girar), los
+  tipos y la importación. Navegar, buscar, la lupa y la exportación de datos
+  siguen funcionando.
+- **Vuelta a la normalidad**: al recuperar la conexión con sesión vigente se
+  recarga el inventario de Drive y desaparece el aviso.
+- **Limpieza**: al cerrar sesión se borran la copia del inventario y la de
+  las fotos. No se comprueba a qué cuenta pertenece la copia: basta con que
+  solo se cree con sesión iniciada y se borre al cerrarla.
+- **Límite**: sin conexión solo se ven las fotos que ya se hubieran abierto
+  en ese dispositivo.
 
 ### 3.1 Coste de la API y del sondeo
 
@@ -570,10 +599,15 @@ Decisiones tomadas:
   y sin compresión, porque los JPEG ya están comprimidos. La lectura admite
   también ZIP comprimidos con *deflate* (`DecompressionStream`), por si la
   copia se ha vuelto a empaquetar. Sin ZIP64: hasta 65 535 archivos y 4 GB.
-- Las fotos se descargan una a una, lo que queda muy por debajo de los
-  límites por minuto de la API; las ya vistas salen de la caché del
-  dispositivo. Todas pasan por memoria a la vez: con miles de fotos haría
-  falta escritura en flujo.
+- La exportación aprovecha lo que ya hay en el dispositivo. Los datos salen
+  del inventario en memoria, sin ninguna consulta a Drive. Las fotos salen
+  de la caché (`inventario-fotos`); solo se descargan las que no están, una a
+  una, y quedan guardadas para la próxima vez.
+- El ZIP se monta como un `Blob` formado por referencias a cada foto, no
+  copiándolas a memoria: cada una se lee solo para calcular su CRC-32 y se
+  libera. El navegador las copia desde su almacenamiento al guardar el
+  archivo, así que el número de fotos no está limitado por la memoria. Las
+  fotos giradas sí se generan en memoria, una a una.
 - Si una foto no se puede obtener, la exportación falla en lugar de dar por
   buena una copia incompleta. En la importación, una foto que no se pueda
   subir no detiene el resto y se informa al terminar.

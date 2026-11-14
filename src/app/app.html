@@ -90,7 +90,7 @@
   }
 </mat-toolbar>
 
-@if (status() === 'expired') {
+@if (status() === 'expired' && online()) {
   <div class="resume" role="alert">
     <span>{{ resumeError() ?? 'La sesión ha caducado. Toca la pantalla para reanudarla.' }}</span>
     <button matButton="tonal" type="button" (click)="resume()">Reanudar sesión</button>
@@ -112,10 +112,10 @@
   </div>
 }
 
-@if (!online()) {
+@if (offlineNotice(); as notice) {
   <div class="offline" role="status">
     <mat-icon aria-hidden="true">cloud_off</mat-icon>
-    <span>Sin conexión. No se pueden guardar cambios ni ver los de otros dispositivos.</span>
+    <span>{{ notice }}</span>
   </div>
 }
 
@@ -126,6 +126,11 @@
 <main #main id="contenido" tabindex="-1">
   @if (!user() || inventory() === 'ready') {
     <router-outlet />
+  } @else if (noLocalCopy()) {
+    <p class="load-error" role="alert">
+      No se puede llegar a Google Drive y este dispositivo todavía no tiene guardada una copia del
+      inventario. Se cargará en cuanto haya conexión.
+    </p>
   } @else if (inventory() === 'error') {
     <p class="load-error" role="alert">No se ha podido cargar el inventario de Google Drive.</p>
     <button matButton="tonal" type="button" (click)="load()">Reintentar</button>

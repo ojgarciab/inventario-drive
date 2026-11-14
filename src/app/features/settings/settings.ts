@@ -10,6 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { ContainerType } from '../../core/inventory/models';
+import { Connectivity } from '../../core/pwa/connectivity';
 import { InstallService } from '../../core/pwa/install-service';
 import { confirm } from '../../shared/confirm-dialog';
 import { installApp } from '../../shared/ios-install-dialog';
@@ -32,6 +33,8 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 })
 export class Settings {
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 

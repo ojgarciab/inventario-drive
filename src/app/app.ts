@@ -29,6 +29,14 @@ import { PhotoService } from './core/photos/photo-service';
 import { Connectivity } from './core/pwa/connectivity';
 import { UpdateService } from './core/pwa/update-service';
 
+/** Fecha y hora de la última sincronización, como «14 nov, 16:40». */
+const SYNC_DATE = new Intl.DateTimeFormat('es', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
 const THEMES: readonly { value: ThemePreference; label: string; icon: string }[] = [
   { value: 'auto', label: 'Automático', icon: 'brightness_auto' },
   { value: 'light', label: 'Claro', icon: 'light_mode' },
@@ -63,6 +71,18 @@ export class App {
   protected readonly online = inject(Connectivity).online;
   protected readonly autoSync = this.sync.autoSync;
   protected readonly resumeError = signal<string | null>(null);
+  /** Sin conexión (o sin sesión vigente) y sin copia del inventario en el dispositivo. */
+  protected readonly noLocalCopy = signal(false);
+  /** Aviso de que se está viendo la copia del dispositivo, y de cuándo es. */
+  protected readonly offlineNotice = computed(() => {
+    const offline = !this.online();
+    if (!offline && !this.store.stale()) return null;
+    const cause = offline ? 'Sin conexión.' : 'No se ha podido sincronizar con Google Drive.';
+    if (!this.user() || this.inventory() !== 'ready') return cause;
+    const syncedAt = this.store.syncedAt();
+    const when = syncedAt ? `, del ${SYNC_DATE.format(new Date(syncedAt))}` : '';
+    return `${cause} Está viendo la copia guardada en este dispositivo${when}. No se pueden hacer cambios hasta volver a conectar.`;
+  });
   private readonly installer = inject(InstallService);
   private readonly dialog = inject(MatDialog);
   protected readonly installAvailable = this.installer.available;
@@ -102,7 +122,8 @@ export class App {
     // Google solo deja abrir su ventana desde un gesto del usuario. Se intenta
     // una vez; si falla, queda el botón «Reanudar sesión».
     effect((onCleanup) => {
-      if (this.status() !== 'expired') return;
+      // Sin conexión no tiene sentido intentarlo: se navega con la copia local.
+      if (this.status() !== 'expired' || !this.online()) return;
       this.auth.prepare();
       const stop = () => this.document.removeEventListener('click', onGesture, true);
       const onGesture = () => {
@@ -112,10 +133,27 @@ export class App {
       this.document.addEventListener('click', onGesture, true);
       onCleanup(stop);
     });
-    // El inventario se carga entero en cuanto hay sesión vigente.
+    // Con sesión vigente y conexión el inventario se carga de Drive. Si falta
+    // alguna de las dos (sin red, o sin poder renovar la sesión), se muestra
+    // la copia guardada en el dispositivo y se sincroniza en cuanto se pueda.
     effect(() => {
-      if (this.status() === 'signedIn' && untracked(this.inventory) === 'idle') this.load();
+      const session = this.status();
+      const online = this.online();
+      if (session === 'signedOut') return;
+      untracked(() => void this.startInventory(session === 'signedIn' && online));
     });
+  }
+
+  private async startInventory(canReachDrive: boolean): Promise<void> {
+    const inventory = this.inventory();
+    if (inventory === 'loading') return;
+    if (canReachDrive) {
+      this.noLocalCopy.set(false);
+      // Con datos ya al día no hay nada que hacer; el sondeo los mantiene.
+      if (inventory !== 'ready' || this.store.stale()) this.load();
+    } else if (inventory !== 'ready') {
+      this.noLocalCopy.set(!(await this.store.showLocalCopy()));
+    }
   }
 
   protected load(): void {

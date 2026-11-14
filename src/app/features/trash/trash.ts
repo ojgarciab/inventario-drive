@@ -8,6 +8,7 @@ import { Router, RouterLink } from '@angular/router';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore, TRASH_RETENTION_DAYS } from '../../core/inventory/inventory-store';
 import { Entity, EntityId } from '../../core/inventory/models';
+import { Connectivity } from '../../core/pwa/connectivity';
 import { confirm } from '../../shared/confirm-dialog';
 import { entityLink } from '../../shared/entity-links';
 
@@ -22,6 +23,8 @@ const dateFormat = new Intl.DateTimeFormat('es', { dateStyle: 'medium' });
 })
 export class Trash {
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly router = inject(Router);

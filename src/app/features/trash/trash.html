@@ -18,7 +18,7 @@
             matIconButton
             type="button"
             [attr.aria-label]="'Restaurar ' + row.entity.name"
-            [disabled]="busy() === row.entity.id"
+            [disabled]="busy() === row.entity.id || !online()"
             (click)="restore(row.entity)"
           >
             <mat-icon>restore_from_trash</mat-icon>
@@ -27,7 +27,7 @@
             matIconButton
             type="button"
             [attr.aria-label]="'Eliminar definitivamente ' + row.entity.name"
-            [disabled]="busy() === row.entity.id"
+            [disabled]="busy() === row.entity.id || !online()"
             (click)="purge(row.entity)"
           >
             <mat-icon>delete_forever</mat-icon>

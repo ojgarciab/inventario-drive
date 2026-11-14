@@ -124,6 +124,19 @@ export class PhotoService {
     await this.discard(photoId);
   }
 
+  /** Fotos guardadas en este dispositivo y espacio que ocupan. */
+  async cacheUsage(): Promise<{ count: number; bytes: number }> {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      let bytes = 0;
+      const keys = await cache.keys();
+      for (const key of keys) bytes += (await (await cache.match(key))?.blob())?.size ?? 0;
+      return { count: keys.length, bytes };
+    } catch {
+      return { count: 0, bytes: 0 };
+    }
+  }
+
   /** Borra las fotos guardadas en este dispositivo, por ejemplo al cerrar sesión. */
   async clearCache(): Promise<void> {
     for (const url of this.urls.values()) url.then(URL.revokeObjectURL, () => undefined);

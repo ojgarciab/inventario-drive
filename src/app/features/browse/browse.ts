@@ -6,6 +6,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import { InventoryStore } from '../../core/inventory/inventory-store';
 import { Container, Entity } from '../../core/inventory/models';
+import { Connectivity } from '../../core/pwa/connectivity';
 import { usePageTitle } from '../../core/pwa/page-title';
 import { Breadcrumb } from '../../shared/breadcrumb';
 import { EntityActions } from '../../shared/entity-actions';
@@ -72,6 +73,8 @@ const FEATURES: readonly { icon: string; title: string; text: string }[] = [
 })
 export class Browse {
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
 
   /** Id del contenedor, tomado de la ruta; ausente en la raíz. */
   readonly id = input<string>();

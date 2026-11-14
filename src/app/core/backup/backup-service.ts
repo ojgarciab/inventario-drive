@@ -12,7 +12,7 @@ import {
   photoFileName,
   toBackup,
 } from './backup-format';
-import { ZipEntry, createZip, readZip } from './zip';
+import { ZipBlobEntry, createZipBlob, readZip } from './zip';
 
 /** Avance de una operación larga: cuántos pasos lleva y cuántos son. */
 export type Progress = (done: number, total: number) => void;
@@ -37,7 +37,6 @@ export interface ImportResult {
 type BackupContainer = Extract<BackupEntity, { kind: 'container' }>;
 type BackupItem = Extract<BackupEntity, { kind: 'item' }>;
 
-const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 /** Exportación e importación de copias de seguridad del inventario. */
@@ -80,20 +79,22 @@ export class BackupService {
         .flatMap((entity) => this.store.photosOf(entity.id))
         .map((photo) => [photo.id, photo]),
     );
-    const entries: ZipEntry[] = [
-      { name: BACKUP_DATA_FILE, data: encoder.encode(JSON.stringify(backup, null, 2)) },
+    const entries: ZipBlobEntry[] = [
+      { name: BACKUP_DATA_FILE, data: new Blob([JSON.stringify(backup, null, 2)]) },
     ];
     progress?.(0, photos.size);
     let done = 0;
     for (const photo of photos.values()) {
-      const image = await this.photos.blob(photo.id, photo.rotation);
+      // Las fotos salen de la caché del dispositivo si ya están en ella (las
+      // que no, se descargan y quedan guardadas). No se cargan en memoria:
+      // el ZIP las referencia y el navegador las copia al guardar el archivo.
       entries.push({
         name: photoFileName(photo.id),
-        data: new Uint8Array(await image.arrayBuffer()),
+        data: await this.photos.blob(photo.id, photo.rotation),
       });
       progress?.(++done, photos.size);
     }
-    return new Blob([createZip(entries) as BlobPart], { type: 'application/zip' });
+    return createZipBlob(entries);
   }
 
   /** Lee una copia de un archivo `.json` o `.zip` sin importar nada todavía. */

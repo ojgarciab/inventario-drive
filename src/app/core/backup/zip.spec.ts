@@ -1,4 +1,4 @@
-import { crc32, createZip, readZip } from './zip';
+import { crc32, createZip, createZipBlob, readZip } from './zip';
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 const text = (data: Uint8Array | undefined) => new TextDecoder().decode(data);
@@ -50,5 +50,46 @@ describe('ZIP', () => {
       'no es un ZIP válido',
     );
     await expect(readZip(new Uint8Array(4))).rejects.toThrow('no es un ZIP válido');
+  });
+
+  describe('a partir de archivos en disco (Blob)', () => {
+    const date = new Date(2026, 10, 14, 10, 0);
+    const binary = Uint8Array.from({ length: 5000 }, (_, i) => (i * 13) % 256);
+
+    it('produce exactamente el mismo archivo que la versión en memoria', async () => {
+      const zip = await createZipBlob(
+        [
+          { name: 'inventario.json', data: new Blob(['{"ñ":"árbol"}']) },
+          { name: 'fotos/a.jpg', data: new Blob([binary]) },
+        ],
+        date,
+      );
+      const expected = createZip(
+        [
+          { name: 'inventario.json', data: bytes('{"ñ":"árbol"}') },
+          { name: 'fotos/a.jpg', data: binary },
+        ],
+        date,
+      );
+
+      expect(zip.type).toBe('application/zip');
+      expect(new Uint8Array(await zip.arrayBuffer())).toEqual(expected);
+    });
+
+    it('lee cada archivo una sola vez, para la suma de comprobación, y no lo retiene', async () => {
+      const photo = new Blob([binary]);
+      const read = vi.spyOn(photo, 'arrayBuffer');
+
+      const zip = await createZipBlob([{ name: 'fotos/a.jpg', data: photo }]);
+
+      expect(read).toHaveBeenCalledTimes(1);
+      const files = await readZip(new Uint8Array(await zip.arrayBuffer()));
+      expect(files.get('fotos/a.jpg')).toEqual(binary);
+    });
+
+    it('admite un ZIP sin archivos', async () => {
+      const zip = await createZipBlob([]);
+      expect((await readZip(new Uint8Array(await zip.arrayBuffer()))).size).toBe(0);
+    });
   });
 });

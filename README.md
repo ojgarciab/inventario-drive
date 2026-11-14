@@ -31,10 +31,13 @@ Casa
   solo pide el permiso `drive.appdata`, por lo que **no puede ver ni tocar el
   resto de archivos de su Drive**.
 - **Varios dispositivos a la vez**: cualquier cambio hecho en un dispositivo
-  aparece en los demás en unos segundos. La ubicación de los objetos nunca se
-  guarda en caché local; solo las fotografías.
+  aparece en los demás en unos segundos. Los cambios se hacen siempre
+  en Drive, nunca sobre una copia local.
 - **Instalable**: es una PWA con *service worker* y diseño *mobile-first*.
-  Necesita conexión para funcionar.
+  Sin conexión, o si no se puede renovar la sesión, permite **consultar** la
+  última copia guardada en el dispositivo (se indica de cuándo es); para
+  añadir, editar, mover o borrar hace falta conexión. Esa copia y las fotos
+  guardadas se borran al cerrar la sesión.
 - Hay que iniciar sesión con una cuenta de Google. El inventario es privado de
   esa cuenta y no se puede compartir con otras, así que se usa **una cuenta de
   Gmail común de la casa** en todos los dispositivos, no la personal de cada

@@ -92,7 +92,14 @@
     </section>
   }
 
-  <button mat-fab class="add" type="button" aria-label="Añadir" [matMenuTriggerFor]="addMenu">
+  <button
+    mat-fab
+    class="add"
+    type="button"
+    aria-label="Añadir"
+    [disabled]="!online()"
+    [matMenuTriggerFor]="addMenu"
+  >
     <mat-icon>add</mat-icon>
   </button>
   <mat-menu #addMenu="matMenu" yPosition="above" xPosition="before">

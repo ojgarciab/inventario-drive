@@ -7,6 +7,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore } from '../../core/inventory/inventory-store';
+import { Connectivity } from '../../core/pwa/connectivity';
 import { Container, EntityId } from '../../core/inventory/models';
 import { entityLink } from '../../shared/entity-links';
 
@@ -19,6 +20,8 @@ import { entityLink } from '../../shared/entity-links';
 })
 export class Move implements OnInit {
   private readonly store = inject(InventoryStore);
+  /** Sin conexión solo se puede consultar: las acciones que guardan se desactivan. */
+  protected readonly online = inject(Connectivity).online;
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 

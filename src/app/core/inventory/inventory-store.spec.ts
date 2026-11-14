@@ -1,8 +1,9 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { InMemoryInventoryRepository } from './in-memory-inventory-repository';
+import { CachedInventory, InventoryCache } from './inventory-cache';
 import { InventoryRepository } from './inventory-repository';
-import { InventoryStore } from './inventory-store';
+import { INVENTORY_SAVE_DELAY_MS, InventoryStore } from './inventory-store';
 import { Connectivity } from '../pwa/connectivity';
 import { Container } from './models';
 
@@ -383,5 +384,190 @@ describe('InventoryStore', () => {
     await expect(store.remove(item.id)).rejects.toThrow('offline');
     expect(create).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
+  });
+
+  describe('copia en el dispositivo', () => {
+    /** Copia local simulada: lo último guardado, o nada. */
+    function fakeCache(initial: CachedInventory | null = null) {
+      let saved = initial;
+      return {
+        save: vi.fn(async (copy: CachedInventory) => void (saved = copy)),
+        load: vi.fn(async () => saved),
+        clear: vi.fn(async () => void (saved = null)),
+        current: () => saved,
+      };
+    }
+
+    function setupWithCache(
+      cache: ReturnType<typeof fakeCache>,
+      repository = new InMemoryInventoryRepository(),
+      online = signal(true),
+    ) {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: InventoryRepository, useValue: repository },
+          { provide: InventoryCache, useValue: cache },
+          { provide: Connectivity, useValue: { online } },
+          { provide: INVENTORY_SAVE_DELAY_MS, useValue: 0 },
+        ],
+      });
+      return { store: TestBed.inject(InventoryStore), repository, online };
+    }
+
+    /** Deja que se ejecuten los efectos y el guardado diferido. */
+    const settle = async () => {
+      TestBed.tick();
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    };
+
+    it('guarda una copia tras cargar y la actualiza con cada cambio', async () => {
+      const cache = fakeCache();
+      const { store } = setupWithCache(cache);
+      await store.load();
+      await settle();
+      expect(cache.current()?.types.length).toBe(4);
+      expect(cache.current()?.entities).toEqual([]);
+      expect(cache.current()?.syncedAt).toBe(store.syncedAt());
+
+      const item = await store.addItem({ name: 'Pilas' });
+      await settle();
+      expect(cache.current()?.entities.map((e) => e.name)).toEqual(['Pilas']);
+
+      await store.remove(item.id);
+      await settle();
+      expect(cache.current()?.entities[0].deletedAt).toBeTruthy();
+      expect(cache.current()?.changeToken).toBeTruthy();
+    });
+
+    it('si no se puede llegar a Drive muestra la copia guardada, marcada como no actual', async () => {
+      const source = setupWithCache(fakeCache());
+      await source.store.load();
+      const h = await house(source.store);
+      await settle();
+      const copy = TestBed.inject(InventoryCache) as unknown as ReturnType<typeof fakeCache>;
+      const saved = copy.current() as CachedInventory;
+
+      TestBed.resetTestingModule();
+      const repository = new InMemoryInventoryRepository();
+      vi.spyOn(repository, 'loadAll').mockRejectedValue(new Error('sin red'));
+      const { store } = setupWithCache(fakeCache(saved), repository);
+
+      await store.load(); // no lanza: hay copia
+
+      expect(store.status()).toBe('ready');
+      expect(store.stale()).toBe(true);
+      expect(store.syncedAt()).toBe(saved.syncedAt);
+      expect(store.path(h.adornos.id).map((e) => e.name)).toEqual([
+        'Casa',
+        'Dormitorio',
+        'Armario',
+        'Caja',
+        'Adornos',
+      ]);
+      expect(store.search('adornos').length).toBe(1);
+    });
+
+    it('sin copia y sin poder llegar a Drive, la carga falla como antes', async () => {
+      const repository = new InMemoryInventoryRepository();
+      vi.spyOn(repository, 'loadAll').mockRejectedValue(new Error('sin red'));
+      const { store } = setupWithCache(fakeCache(), repository);
+      await expect(store.load()).rejects.toThrow('sin red');
+      expect(store.status()).toBe('error');
+      expect(await store.showLocalCopy()).toBe(false);
+    });
+
+    it('muestra la copia sin consultar Drive y se pone al día al volver la conexión', async () => {
+      const repository = new InMemoryInventoryRepository();
+      const first = setupWithCache(fakeCache(), repository);
+      await first.store.load();
+      await first.store.addItem({ name: 'Pilas' });
+      await settle();
+      const saved = (
+        TestBed.inject(InventoryCache) as unknown as ReturnType<typeof fakeCache>
+      ).current();
+
+      // Mientras tanto, otro dispositivo añade algo.
+      await repository.createItem({ name: 'Paraguas' });
+
+      TestBed.resetTestingModule();
+      const loadAll = vi.spyOn(repository, 'loadAll');
+      const { store } = setupWithCache(fakeCache(saved), repository, signal(false));
+      expect(await store.showLocalCopy()).toBe(true);
+      expect(loadAll).not.toHaveBeenCalled();
+      expect(store.stale()).toBe(true);
+      expect(store.search('paraguas')).toEqual([]);
+
+      await store.load(); // vuelve la conexión
+      expect(store.stale()).toBe(false);
+      expect(store.search('paraguas').length).toBe(1);
+      expect(store.search('pilas').length).toBe(1);
+    });
+
+    it('si una recarga falla con datos a la vista, los conserva en lugar de dar error', async () => {
+      const { store, repository } = setupWithCache(fakeCache());
+      await store.load();
+      await store.addItem({ name: 'Pilas' });
+      vi.spyOn(repository, 'loadAll').mockRejectedValueOnce(new Error('sin red'));
+
+      await store.load();
+
+      expect(store.status()).toBe('ready');
+      expect(store.stale()).toBe(true);
+      expect(store.search('pilas').length).toBe(1);
+    });
+
+    it('con la copia a la vista y sin conexión no deja hacer cambios', async () => {
+      const first = setupWithCache(fakeCache());
+      await first.store.load();
+      const item = await first.store.addItem({ name: 'Pilas' });
+      await settle();
+      const saved = (
+        TestBed.inject(InventoryCache) as unknown as ReturnType<typeof fakeCache>
+      ).current();
+
+      TestBed.resetTestingModule();
+      const { store } = setupWithCache(fakeCache(saved), undefined, signal(false));
+      await store.showLocalCopy();
+
+      await expect(store.move(item.id, null)).rejects.toThrow('offline');
+      await expect(store.addItem({ name: 'x' })).rejects.toThrow('offline');
+    });
+
+    it('una sincronización correcta deja de marcar los datos como no actuales', async () => {
+      const first = setupWithCache(fakeCache());
+      await first.store.load();
+      await settle();
+      const saved = (
+        TestBed.inject(InventoryCache) as unknown as ReturnType<typeof fakeCache>
+      ).current();
+
+      TestBed.resetTestingModule();
+      const { store } = setupWithCache(fakeCache(saved));
+      await store.showLocalCopy();
+      expect(store.stale()).toBe(true);
+
+      await store.refresh();
+      expect(store.stale()).toBe(false);
+      expect(Date.parse(store.syncedAt() as string)).toBeGreaterThanOrEqual(
+        Date.parse((saved as CachedInventory).syncedAt),
+      );
+    });
+
+    it('al cerrar la sesión borra la copia del dispositivo', async () => {
+      const cache = fakeCache();
+      const { store } = setupWithCache(cache);
+      await store.load();
+      await store.addItem({ name: 'Pilas' });
+      await settle();
+      expect(cache.current()).not.toBeNull();
+
+      store.reset();
+      await settle();
+
+      expect(cache.clear).toHaveBeenCalled();
+      expect(cache.current()).toBeNull();
+      expect(store.syncedAt()).toBeNull();
+      expect(store.status()).toBe('idle');
+    });
   });
 });
