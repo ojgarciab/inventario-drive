@@ -17,6 +17,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
+import { AgentTools } from './core/ai/agent-tools';
 import { authErrorMessage } from './core/auth/auth-messages';
 import { AuthService } from './core/auth/auth-service';
 import { InstallService } from './core/pwa/install-service';
@@ -102,6 +103,7 @@ export class App {
   constructor() {
     this.sync.start();
     inject(UpdateService).start();
+    inject(AgentTools).start();
     // Al cambiar de pantalla el foco pasa al contenido, para que los lectores
     // de pantalla y el teclado no se queden en el enlace que se pulsó. No se
     // hace si solo cambian los parámetros (la búsqueda los cambia al escribir).

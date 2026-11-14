@@ -307,6 +307,40 @@ describe('BackupService', () => {
     expect(result).toMatchObject({ containers: 3, items: 2, photos: 2, failedPhotos: 1 });
   });
 
+  it('importa el ejemplo mínimo que se documenta para asistentes de IA (llms.txt)', async () => {
+    // Si este formato cambia, hay que actualizar también public/llms.txt.
+    const example = {
+      format: 'inventario-hogar',
+      version: 1,
+      types: [{ id: 't-caja', name: 'Caja', icon: 'package_2', order: 40, slug: 'caja' }],
+      entities: [
+        { id: 'c1', kind: 'container', name: 'Casa', parentId: null, typeId: null },
+        {
+          id: 'c2',
+          kind: 'container',
+          name: 'Caja de cartón',
+          parentId: 'c1',
+          typeId: 't-caja',
+          notes: 'Marcada con una N',
+          tags: ['navidad'],
+        },
+        { id: 'o1', kind: 'item', name: 'Adornos', parentId: 'c2', quantity: 24 },
+      ],
+    };
+    const app = await setup();
+
+    const loaded = await app.backups.read(new Blob([JSON.stringify(example)]));
+    expect(loaded.summary).toEqual({ containers: 2, items: 1, photos: 0 });
+    await app.backups.import(loaded);
+
+    expect(tree(app.store)).toEqual(['Casa [-]', '  Caja de cartón [Caja]', '    Adornos x24']);
+    expect(app.store.types().length).toBe(4); // «caja» ya existía: no se duplica
+    expect(app.store.search('caja de cartón')[0]).toMatchObject({
+      notes: 'Marcada con una N',
+      tags: ['navidad'],
+    });
+  });
+
   it('rechaza archivos que no son una copia', async () => {
     const app = await setup();
     await expect(app.backups.read(new Blob(['hola']))).rejects.toThrow('no contiene una copia');

@@ -1,0 +1,88 @@
+# Inventario del hogar
+
+> Aplicación web para llevar el inventario de una casa: qué objetos hay y en qué contenedor está cada uno. Los contenedores se anidan sin límite (casa → habitación → armario → caja → objeto). Los datos se guardan en el Google Drive de quien inicia sesión; no hay servidor propio ni API pública.
+
+Esta página describe la aplicación para asistentes de IA: cómo está organizada, qué herramientas ofrece a un agente que la esté usando en el navegador y cómo cargar muchos datos de una vez.
+
+## Cómo funciona
+
+- Es una aplicación de una sola página en <https://inventario.linaresdigital.com/>. Hay que iniciar sesión con una cuenta de Google; sin sesión solo se ve la pantalla de inicio de sesión.
+- Todo ocurre en el navegador. No existe una API HTTP a la que llamar desde fuera: el inventario está en un espacio privado de Google Drive al que solo accede la aplicación con la sesión del usuario.
+- Hay dos clases de elementos:
+  - **Contenedor**: tiene nombre, tipo opcional (casa, habitación, armario, caja u otros que defina el usuario), notas, etiquetas y fotos. Puede estar en el inicio (la raíz) o dentro de otro contenedor.
+  - **Objeto**: tiene nombre, cantidad, notas, etiquetas y fotos. Puede estar en el inicio o dentro de un contenedor.
+- Mover un contenedor traslada también todo su contenido.
+- Eliminar envía a una papelera, de la que se puede recuperar durante 30 días.
+- Sin conexión solo se puede consultar la última copia guardada en el dispositivo; para hacer cambios hace falta conexión.
+
+## Pantallas
+
+- `/` — Inicio: contenedores y objetos de la raíz.
+- `/c/{id}` — Contenido de un contenedor.
+- `/o/{id}` — Ficha de un objeto.
+- `/buscar?q={texto}` — Búsqueda por nombre, notas y etiquetas.
+- `/etiquetas` — Etiquetas en uso.
+- `/nuevo/contenedor?en={id}` y `/nuevo/objeto?en={id}` — Alta dentro del contenedor indicado; sin `en`, en el inicio.
+- `/c/{id}/editar` y `/o/{id}/editar` — Edición.
+- `/mover/{id}` — Elegir el nuevo contenedor de un elemento.
+- `/almacenamiento` — Espacio usado, exportación e importación de copias.
+- `/ajustes` — Tipos de contenedor.
+- `/papelera` — Elementos eliminados.
+
+Los identificadores `{id}` son estables: un enlace a `/c/{id}` sigue valiendo aunque el contenedor se mueva.
+
+## Herramientas para agentes (WebMCP)
+
+Si el navegador admite [WebMCP](https://webmachinelearning.github.io/webmcp/), la aplicación registra estas herramientas en `document.modelContext`. Con ellas un agente puede consultar y modificar el inventario directamente, sin pulsar botones ni rellenar formularios. Solo funcionan con la sesión iniciada y el inventario cargado. Devuelven un texto con el resultado en JSON.
+
+- `inventario_buscar` (`texto`) — Busca contenedores y objetos. Devuelve como máximo 50 resultados y el total.
+- `inventario_listar_contenido` (`contenedor_id` opcional) — Contenido directo de un contenedor, o del inicio.
+- `inventario_ver_elemento` (`id`) — Datos completos de un elemento y su ubicación.
+- `inventario_listar_tipos` — Tipos de contenedor, con su identificador.
+- `inventario_crear_contenedor` (`nombre`, `contenedor_id`, `tipo_id`, `notas`, `etiquetas`) — Solo `nombre` es obligatorio.
+- `inventario_crear_objeto` (`nombre`, `contenedor_id`, `cantidad`, `notas`, `etiquetas`) — Solo `nombre` es obligatorio.
+- `inventario_editar_elemento` (`id` y los campos que cambian) — No cambia la ubicación.
+- `inventario_mover_elemento` (`id`, `contenedor_id`) — `contenedor_id` a `null` lo lleva al inicio.
+- `inventario_eliminar_elemento` (`id`) — A la papelera. Si es un contenedor con contenido, este pasa al contenedor superior.
+- `inventario_restaurar_elemento` (`id`) — Lo recupera de la papelera.
+
+Pautas de uso:
+
+- Para colocar algo dentro de un contenedor hace falta el `id` de ese contenedor: obténgalo con `inventario_buscar` o `inventario_listar_contenido`, o del resultado de `inventario_crear_contenedor`.
+- Cada elemento devuelto incluye `ubicacion` (la ruta de fuera hacia dentro, por ejemplo `Casa › Salón › Armario`) y `enlace` (su pantalla).
+- No hay herramienta para borrar definitivamente ni para gestionar fotos: eso lo hace el usuario en la aplicación.
+- Antes de modificar o eliminar algo, confirme con el usuario qué elemento es.
+
+## Cargar muchos datos de una vez
+
+Para volcar un inventario entero (por ejemplo, desde una hoja de cálculo) es más rápido generar un archivo JSON e importarlo en `/almacenamiento` → «Importar una copia». La importación **añade** lo que contiene el archivo, sin borrar ni modificar lo que ya hay.
+
+Formato:
+
+```json
+{
+  "format": "inventario-hogar",
+  "version": 1,
+  "types": [
+    { "id": "t-caja", "name": "Caja", "icon": "package_2", "order": 40, "slug": "caja" }
+  ],
+  "entities": [
+    { "id": "c1", "kind": "container", "name": "Casa", "parentId": null, "typeId": null },
+    { "id": "c2", "kind": "container", "name": "Caja de cartón", "parentId": "c1", "typeId": "t-caja", "notes": "Marcada con una N", "tags": ["navidad"] },
+    { "id": "o1", "kind": "item", "name": "Adornos", "parentId": "c2", "quantity": 24 }
+  ]
+}
+```
+
+- `id` puede ser cualquier texto único dentro del archivo: solo sirve para enlazar unos elementos con otros mediante `parentId` y `typeId`. Al importar, cada elemento recibe un identificador nuevo.
+- `kind` es `container` o `item`. `name` es obligatorio. `parentId` a `null` (o ausente) lo sitúa en el inicio.
+- `notes`, `tags`, `quantity` (objetos, entero ≥ 1) y `typeId` (contenedores) son opcionales.
+- Los tipos se emparejan con los que ya existan por `slug` o por nombre; los tipos por defecto tienen `slug` `casa`, `habitacion`, `armario` y `caja`. Solo se crean los que falten.
+- Límites: nombre de hasta 200 caracteres y notas de hasta 8000.
+- El archivo también puede ser un ZIP con ese JSON como `inventario.json` y las fotos como `fotos/{photoId}.jpg`, referenciadas desde cada elemento con `photoIds` (lista) y `photoId` (la destacada).
+
+## Más información
+
+- [Política de privacidad](https://inventario.linaresdigital.com/privacidad.html): qué datos se tratan y dónde se guardan.
+- [Condiciones del servicio](https://inventario.linaresdigital.com/condiciones.html)
+- [Código fuente](https://github.com/ojgarciab/inventario-drive): software libre con licencia GPL-3.0.

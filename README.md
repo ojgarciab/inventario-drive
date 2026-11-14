@@ -255,6 +255,19 @@ Todas ejecutan antes `scripts/set-env.mjs`, que genera
 variable de entorno `GOOGLE_CLIENT_ID`. El service worker solo se activa en la
 compilación de producción.
 
+## Uso con asistentes de IA
+
+- **Herramientas WebMCP**: en navegadores que admiten
+  [WebMCP](https://webmachinelearning.github.io/webmcp/) (experimental), la
+  aplicación registra diez herramientas (`inventario_buscar`,
+  `inventario_crear_objeto`, `inventario_mover_elemento`…) con las que un
+  agente consulta y modifica el inventario sin simular pulsaciones. Están en
+  `src/app/core/ai/agent-tools.ts`. En los demás navegadores no hacen nada.
+- **[llms.txt](public/llms.txt)**: describe la aplicación, sus pantallas, las
+  herramientas y el formato JSON para importar muchos datos de una vez.
+  Si cambian las herramientas o el formato de las copias, hay que
+  actualizarlo a mano.
+
 ## Privacidad y copias de seguridad
 
 - [Política de privacidad](public/privacidad.html) y

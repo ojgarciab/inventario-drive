@@ -464,6 +464,26 @@ solo icono llevan etiqueta.
   medición, publicidad), esa exención deja de aplicarse y hará falta
   consentimiento previo y revisar ambos textos.
 
+### 5.5.2 Asistentes de IA
+
+- **WebMCP** (`core/ai/agent-tools.ts`): al arrancar se registran diez
+  herramientas en `document.modelContext` (o en `navigator.modelContext`,
+  donde estaba en los primeros borradores) con `registerTool(tool, { signal })`;
+  se retiran abortando la señal. Cada una tiene nombre, descripción, esquema
+  JSON de parámetros y una función que llama al mismo `InventoryStore` que
+  las pantallas, de modo que valen las mismas validaciones, el modo sin
+  conexión y los mismos mensajes de error. Devuelven
+  `{ content: [{ type: 'text', text }] }` con el resultado en JSON.
+  Las de solo lectura llevan `readOnlyHint`. No hay herramientas para el
+  borrado definitivo ni para las fotos.
+- La API es experimental (borrador del W3C de noviembre de 2026; en Chrome,
+  solo en un programa de acceso anticipado). Sin ella la aplicación funciona
+  igual. Conviene revisar el borrador antes de ampliarlas.
+- **`public/llms.txt`**: descripción de la aplicación para modelos de
+  lenguaje, con las pantallas, las herramientas y el formato JSON de
+  importación (con una prueba que importa ese mismo ejemplo). Se mantiene a
+  mano.
+
 ### 5.6 PWA y service worker
 
 - `manifest.webmanifest`: `display: standalone`, iconos 192/512 normales y
