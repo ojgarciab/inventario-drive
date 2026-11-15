@@ -110,3 +110,33 @@ button[matButton] {
     margin-bottom: 12px;
   }
 }
+
+.session {
+  details {
+    margin-bottom: 12px;
+  }
+
+  summary {
+    cursor: pointer;
+  }
+
+  ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+  }
+
+  li + li {
+    margin-top: 6px;
+  }
+
+  .hint {
+    margin-top: 8px;
+  }
+
+  .blocked {
+    align-items: center;
+    color: var(--mat-sys-error);
+    display: flex;
+    gap: 8px;
+  }
+}

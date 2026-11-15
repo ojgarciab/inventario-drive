@@ -71,7 +71,11 @@ export class App {
   protected readonly inventory = this.store.status;
   protected readonly online = inject(Connectivity).online;
   protected readonly autoSync = this.sync.autoSync;
-  protected readonly resumeError = signal<string | null>(null);
+  /** Si se volvió de Google con un error, se cuenta en el aviso de sesión caducada. */
+  protected readonly resumeError = signal<string | null>(
+    this.auth.redirectError() ? authErrorMessage(this.auth.redirectError()) : null,
+  );
+  protected readonly redirectMode = computed(() => this.auth.redirectMode());
   /** Sin conexión (o sin sesión vigente) y sin copia del inventario en el dispositivo. */
   protected readonly noLocalCopy = signal(false);
   /** Aviso de que se está viendo la copia del dispositivo, y de cuándo es. */
@@ -126,6 +130,9 @@ export class App {
     effect((onCleanup) => {
       // Sin conexión no tiene sentido intentarlo: se navega con la copia local.
       if (this.status() !== 'expired' || !this.online()) return;
+      // Por redirección se sale de la página: solo se hace con el botón, para
+      // no perder por un toque cualquiera lo que se estuviera escribiendo.
+      if (this.redirectMode()) return;
       this.auth.prepare();
       const stop = () => this.document.removeEventListener('click', onGesture, true);
       const onGesture = () => {

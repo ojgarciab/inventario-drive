@@ -344,6 +344,15 @@ ngsw-config.json
   «Reanudar sesión». En ese estado el primer toque en cualquier parte de la
   pantalla ya la reanuda (el gesto permite abrir la ventana de Google, que
   se cierra sola); se intenta una vez y, si falla, queda el botón.
+  **Renovación por redirección** (opcional, por dispositivo, en Ajustes):
+  para navegadores que bloquean las ventanas emergentes, la página va a
+  Google (`/o/oauth2/v2/auth`, `response_type=token`) y vuelve con el token
+  en el fragmento de la dirección. No necesita gesto del usuario, así que al
+  abrir la aplicación con la sesión caducada se renueva sola
+  (`prompt=none`). Al volver se comprueba el `state`, se valida el token con
+  `tokeninfo` (que sea de este cliente y con el permiso) y se limpia la
+  dirección. Exige registrar la dirección de la aplicación como URI de
+  redirección autorizado del cliente OAuth.
 - **`DriveApi`**: envoltorio fino de la API REST v3 limitado a
   `appDataFolder` (`files.list` paginado, `files.create`, `files.update`,
   `files.delete`, `changes.getStartPageToken`, `changes.list`). Reintenta con

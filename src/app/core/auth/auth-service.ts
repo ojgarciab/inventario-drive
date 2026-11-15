@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, InjectionToken, computed, inject, signal } from '@angular/core';
+import { DOCUMENT, Injectable, InjectionToken, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { GisOauth2, GisTokenRequest, GisTokenResponse } from './gis-types';
@@ -12,8 +12,16 @@ export const GOOGLE_CLIENT_ID = new InjectionToken<string>('GOOGLE_CLIENT_ID', {
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 export const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 const GIS_URL = 'https://accounts.google.com/gsi/client';
+const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const TOKEN_INFO_URL = 'https://www.googleapis.com/oauth2/v3/tokeninfo';
 const SESSION_KEY = 'inventario.sesion';
 const HINT_KEY = 'inventario.cuenta';
+/** Preferencia de este dispositivo; solo se anota cuando se renueva por redirección. */
+const MODE_KEY = 'inventario.renovacion';
+/** Anotación de que el navegador bloqueó la última ventana de Google. */
+const BLOCKED_KEY = 'inventario.emergentes';
+/** Ida a Google en curso (redirección): con qué `state` se fue y a dónde volver. */
+const PENDING_KEY = 'inventario.redireccion';
 /** Margen con el que un token se considera caducado antes de su hora real. */
 const EXPIRY_MARGIN_MS = 60_000;
 
@@ -30,6 +38,23 @@ interface Session {
   expiresAt: number;
   user: UserProfile;
 }
+
+interface PendingRedirect {
+  state: string;
+  /** Ruta de la aplicación en la que se estaba al ir a Google. */
+  returnUrl: string;
+}
+
+interface TokenInfo {
+  aud?: string;
+  scope?: string;
+}
+
+/** Lleva el navegador a otra página; se puede sustituir en las pruebas. */
+export const PAGE_REDIRECT = new InjectionToken<(url: string) => void>('PAGE_REDIRECT', {
+  providedIn: 'root',
+  factory: () => (url) => window.location.assign(url),
+});
 
 interface AboutResponse {
   user?: { displayName?: string; emailAddress?: string; photoLink?: string };
@@ -54,11 +79,20 @@ export class AuthError extends Error {
  * pide otro en silencio indicando la cuenta (`login_hint`). Si el navegador
  * bloquea esa petición por no venir de un gesto del usuario, la sesión pasa a
  * `expired` y la interfaz ofrece reanudarla.
+ *
+ * Si el navegador bloquea las ventanas emergentes se puede elegir, en cada
+ * dispositivo, renovar por redirección: la página va a Google y vuelve con
+ * el token en la dirección (flujo implícito de OAuth 2.0). No necesita gesto
+ * del usuario, así que al abrir la aplicación con la sesión caducada se
+ * renueva sola. Requiere que la dirección de la aplicación esté entre los
+ * URI de redirección autorizados del cliente OAuth.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
   private readonly clientId = inject(GOOGLE_CLIENT_ID);
+  private readonly document = inject(DOCUMENT);
+  private readonly go = inject(PAGE_REDIRECT);
 
   private readonly session = signal<Session | null>(this.restore());
   private readonly needsResume = signal(this.isExpired(this.session()));
@@ -73,13 +107,143 @@ export class AuthService {
   });
   readonly isConfigured = this.clientId !== '';
 
+  private readonly redirecting = signal(this.read(localStorage, MODE_KEY) === 'redirect');
+  private readonly blocked = signal(this.read(localStorage, BLOCKED_KEY) !== null);
+  private readonly failure = signal<string | null>(null);
+  /** En este dispositivo la sesión se renueva por redirección, sin ventana emergente. */
+  readonly redirectMode = this.redirecting.asReadonly();
+  /** El navegador bloqueó la última ventana de Google que se intentó abrir. */
+  readonly popupBlocked = this.blocked.asReadonly();
+  /** Código del error con el que volvió de Google la última redirección, si falló. */
+  readonly redirectError = this.failure.asReadonly();
+
+  setRedirectMode(enabled: boolean): void {
+    this.redirecting.set(enabled);
+    if (enabled) this.write(localStorage, MODE_KEY, 'redirect');
+    else this.remove(localStorage, MODE_KEY);
+  }
+
   /**
    * Inicia o reanuda la sesión. Debe llamarse desde un gesto del usuario.
    * Las llamadas simultáneas comparten la petición: solo se abre una ventana.
+   * En modo de redirección la página se va a Google (la promesa no termina);
+   * `popup` fuerza la ventana emergente aunque ese modo esté elegido.
    */
-  signIn(): Promise<void> {
+  signIn(options: { popup?: boolean } = {}): Promise<void> {
+    this.failure.set(null);
+    if (this.redirecting() && !options.popup) {
+      const hint = this.session()?.user.email ?? this.readHint();
+      return this.redirect(hint ? { login_hint: hint } : {});
+    }
     this.signingIn ??= this.signInOnce().finally(() => (this.signingIn = null));
     return this.signingIn;
+  }
+
+  /**
+   * Termina, al arrancar, lo que tenga que ver con la redirección a Google:
+   * recoge el token si se vuelve de allí y, en modo de redirección, renueva
+   * la sesión caducada sin esperar a que el usuario lo pida.
+   */
+  async completeRedirect(): Promise<void> {
+    const location = this.document.location;
+    const pending = this.takePending();
+    const response = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const fromGoogle = response.has('access_token') || response.has('error');
+    if (fromGoogle) {
+      // El token no se deja en la dirección ni en el historial, y se vuelve
+      // a la pantalla en la que se estaba.
+      const returnUrl = pending?.returnUrl ?? location.pathname + location.search;
+      this.document.defaultView?.history.replaceState(null, '', returnUrl);
+    }
+    if (fromGoogle && pending && response.get('state') === pending.state) {
+      await this.acceptResponse(response);
+      return;
+    }
+    if (pending) {
+      // Se fue a Google y no se ha vuelto con una respuesta: algo falló allí
+      // (por ejemplo, la dirección no está autorizada). No se insiste.
+      this.failure.set('redirect_failed');
+      return;
+    }
+    if (
+      !fromGoogle &&
+      this.redirecting() &&
+      this.isConfigured &&
+      this.needsResume() &&
+      this.document.defaultView?.navigator.onLine !== false
+    ) {
+      const email = (this.session() as Session).user.email;
+      await this.redirect({ login_hint: email, prompt: 'none' });
+    }
+  }
+
+  private async acceptResponse(response: URLSearchParams): Promise<void> {
+    try {
+      const accessToken = response.get('access_token');
+      if (!accessToken) throw new AuthError(response.get('error') ?? 'no_token');
+      // El token llega por la dirección: se comprueba que Google lo emitió
+      // para esta aplicación y con el permiso que necesita.
+      const info = await firstValueFrom(
+        this.http.get<TokenInfo>(TOKEN_INFO_URL, {
+          params: { access_token: accessToken },
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }),
+      );
+      if (info.aud !== this.clientId) throw new AuthError('no_token');
+      if (!info.scope?.split(' ').includes(DRIVE_SCOPE)) throw new AuthError('scope_not_granted');
+      const expiresAt = Date.now() + Number(response.get('expires_in') ?? 3600) * 1000;
+      const user = this.session()?.user ?? (await this.loadProfile(accessToken));
+      this.store({ accessToken, expiresAt, user });
+    } catch (error) {
+      this.failure.set(error instanceof AuthError ? error.code : 'redirect_failed');
+    }
+  }
+
+  /** Lleva la página a Google para pedir un token; no vuelve a esta ejecución. */
+  private redirect(request: { login_hint?: string; prompt?: 'none' }): Promise<never> {
+    if (!this.isConfigured) return Promise.reject(new AuthError('not_configured'));
+    const window = this.document.defaultView as Window;
+    const location = this.document.location;
+    const state = crypto.randomUUID();
+    const pending: PendingRedirect = {
+      state,
+      returnUrl: location.pathname + location.search,
+    };
+    this.write(sessionStorage, PENDING_KEY, JSON.stringify(pending));
+    const url = new URL(AUTHORIZE_URL);
+    url.search = new URLSearchParams({
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri(),
+      response_type: 'token',
+      scope: DRIVE_SCOPE,
+      state,
+      ...request,
+    }).toString();
+    // Si se vuelve con «atrás» y el navegador restaura la página congelada,
+    // se recarga para que arranque de nuevo.
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) location.reload();
+    });
+    this.go(url.toString());
+    return new Promise<never>(() => undefined);
+  }
+
+  /** Dirección a la que Google devuelve el token: la raíz de la aplicación. */
+  redirectUri(): string {
+    const base = new URL(this.document.baseURI);
+    return base.origin + base.pathname;
+  }
+
+  private takePending(): PendingRedirect | null {
+    const raw = this.read(sessionStorage, PENDING_KEY);
+    this.remove(sessionStorage, PENDING_KEY);
+    try {
+      const value = raw ? (JSON.parse(raw) as Partial<PendingRedirect>) : null;
+      if (value?.state && typeof value.returnUrl === 'string') return value as PendingRedirect;
+    } catch {
+      // Contenido dañado: como si no se hubiera ido a Google.
+    }
+    return null;
   }
 
   /**
@@ -156,10 +320,14 @@ export class AuthService {
           } else if (!response.scope?.split(' ').includes(DRIVE_SCOPE)) {
             reject(new AuthError('scope_not_granted'));
           } else {
+            this.notePopup(false);
             resolve(response);
           }
         },
-        error_callback: (error) => reject(new AuthError(error.type)),
+        error_callback: (error) => {
+          if (error.type === 'popup_failed_to_open') this.notePopup(true);
+          reject(new AuthError(error.type));
+        },
       });
       client.requestAccessToken(request);
     });
@@ -229,8 +397,19 @@ export class AuthService {
   }
 
   private readHint(): string | null {
+    return this.read(localStorage, HINT_KEY);
+  }
+
+  /** Anota si el navegador ha bloqueado o no la ventana de Google. */
+  private notePopup(blocked: boolean): void {
+    this.blocked.set(blocked);
+    if (blocked) this.write(localStorage, BLOCKED_KEY, 'bloqueadas');
+    else this.remove(localStorage, BLOCKED_KEY);
+  }
+
+  private read(storage: Storage, key: string): string | null {
     try {
-      return localStorage.getItem(HINT_KEY);
+      return storage.getItem(key);
     } catch {
       return null;
     }

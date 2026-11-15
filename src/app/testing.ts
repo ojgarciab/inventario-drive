@@ -18,7 +18,17 @@ export async function setupApp() {
     providers: [
       provideRouter(routes, withComponentInputBinding()),
       { provide: InventoryRepository, useValue: repository },
-      { provide: AuthService, useValue: { status: signal<AuthStatus>('signedIn') } },
+      {
+        provide: AuthService,
+        useValue: {
+          status: signal<AuthStatus>('signedIn'),
+          redirectMode: signal(false),
+          popupBlocked: signal(false),
+          redirectError: signal<string | null>(null),
+          redirectUri: () => 'https://inventario.example/',
+          setRedirectMode: () => undefined,
+        },
+      },
     ],
   });
   const store = TestBed.inject(InventoryStore);

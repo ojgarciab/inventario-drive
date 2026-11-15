@@ -17,13 +17,18 @@ export class Login {
   private readonly router = inject(Router);
 
   protected readonly busy = signal(false);
-  protected readonly error = signal<string | null>(null);
+  /** Si se volvió de Google con un error (redirección), se muestra al llegar. */
+  protected readonly error = signal<string | null>(
+    this.auth.redirectError() ? authErrorMessage(this.auth.redirectError()) : null,
+  );
+  protected readonly redirectMode = this.auth.redirectMode;
 
-  protected async signIn(): Promise<void> {
+  /** `popup` usa la ventana emergente aunque esté elegida la redirección. */
+  protected async signIn(popup = false): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     try {
-      await this.auth.signIn();
+      await this.auth.signIn({ popup });
       await this.router.navigateByUrl('/');
     } catch (error) {
       this.error.set(authErrorMessage(error));

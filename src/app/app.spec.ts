@@ -17,6 +17,8 @@ describe('App', () => {
   const signIn = vi.fn().mockResolvedValue(undefined);
   const signOut = vi.fn();
   const prepare = vi.fn();
+  const redirectMode = signal(false);
+  const redirectError = signal<string | null>(null);
   const online = signal(true);
 
   async function render(repository = new InMemoryInventoryRepository()) {
@@ -25,7 +27,10 @@ describe('App', () => {
       providers: [
         provideRouter([{ path: '**', children: [] }]),
         { provide: InventoryRepository, useValue: repository },
-        { provide: AuthService, useValue: { status, user, signIn, signOut, prepare } },
+        {
+          provide: AuthService,
+          useValue: { status, user, signIn, signOut, prepare, redirectMode, redirectError },
+        },
         { provide: Connectivity, useValue: { online } },
       ],
     }).compileComponents();
@@ -102,6 +107,31 @@ describe('App', () => {
     el.querySelector<HTMLElement>('mat-toolbar')?.click();
     expect(signIn).toHaveBeenCalledTimes(1);
     expect(el.querySelector('.resume button')).not.toBeNull();
+  });
+
+  it('por redirección no reanuda con cualquier toque: solo con el botón', async () => {
+    signIn.mockClear();
+    redirectMode.set(true);
+    status.set('expired');
+    user.set(casa);
+    const { el } = await render();
+    expect(el.querySelector('.resume')?.textContent).not.toContain('Toca la pantalla');
+
+    el.querySelector<HTMLElement>('mat-toolbar')?.click();
+    expect(signIn).not.toHaveBeenCalled();
+
+    el.querySelector<HTMLButtonElement>('.resume button')?.click();
+    expect(signIn).toHaveBeenCalledTimes(1);
+    redirectMode.set(false);
+  });
+
+  it('cuenta por qué falló la renovación por redirección', async () => {
+    redirectError.set('interaction_required');
+    status.set('expired');
+    user.set(casa);
+    const { el } = await render();
+    expect(el.querySelector('.resume')?.textContent).toContain('confirme la cuenta');
+    redirectError.set(null);
   });
 
   it('con la sesión vigente los toques no piden nada', async () => {

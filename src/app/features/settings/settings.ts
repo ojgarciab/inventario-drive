@@ -7,6 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../core/auth/auth-service';
 import { LocalAi, LocalAiError } from '../../core/ai/local-ai';
 import { inventoryErrorMessage } from '../../core/inventory/inventory-messages';
 import { InventoryStore } from '../../core/inventory/inventory-store';
@@ -39,6 +40,11 @@ export class Settings {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
+  private readonly auth = inject(AuthService);
+  protected readonly redirectMode = this.auth.redirectMode;
+  protected readonly popupBlocked = this.auth.popupBlocked;
+  /** Dirección que debe estar autorizada en el cliente OAuth para la redirección. */
+  protected readonly redirectUri = this.auth.redirectUri();
   private readonly installer = inject(InstallService);
   protected readonly installState = this.installer.state;
 
@@ -56,6 +62,10 @@ export class Settings {
     const task = this.task();
     return task && task.total > 0 ? Math.round((task.done / task.total) * 100) : 0;
   });
+
+  protected toggleRedirectMode(): void {
+    this.auth.setRedirectMode(!this.redirectMode());
+  }
 
   protected install(): Promise<void> {
     return installApp(this.installer, this.dialog);

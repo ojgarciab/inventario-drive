@@ -24,6 +24,12 @@ export function demoProviders(): Provider[] {
     isConfigured: true,
     signIn: async () => undefined,
     prepare: () => undefined,
+    completeRedirect: async () => undefined,
+    redirectMode: signal(false),
+    popupBlocked: signal(false),
+    redirectError: signal<string | null>(null),
+    redirectUri: () => location.origin + '/',
+    setRedirectMode: () => undefined,
     validToken: async () => 'demo',
     renew: async () => 'demo',
     signOut: () => {

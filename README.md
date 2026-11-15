@@ -148,6 +148,17 @@ identificador de cliente, que es público.
      ```
 
      (el segundo solo es necesario para desarrollo local).
+   - **URI de redireccionamiento autorizados** (opcional, pero necesario para
+     la opción «Renovar sin ventana emergente» de Ajustes): las mismas
+     direcciones terminadas en barra.
+
+     ```
+     https://inventario.linaresdigital.com/
+     http://localhost:4200/
+     ```
+
+     Sin este paso, quien active esa opción verá en Google el error
+     `redirect_uri_mismatch` al renovar la sesión.
    - **URI de redireccionamiento autorizados**: déjelo vacío. El inicio de
      sesión usa la ventana emergente de Google Identity Services y no
      necesita redirección.

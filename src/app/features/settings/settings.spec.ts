@@ -1,5 +1,7 @@
 import { signal } from '@angular/core';
+import { WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { AuthService } from '../../core/auth/auth-service';
 import { AiAvailability, LocalAi } from '../../core/ai/local-ai';
 import { DOWNLOADER } from '../../shared/download';
 import { clickOn, setupApp, texts, typeInto } from '../../testing';
@@ -17,6 +19,48 @@ describe('Settings', () => {
 
   afterEach(() => {
     document.querySelectorAll('.cdk-overlay-container').forEach((el) => el.replaceChildren());
+  });
+
+  describe('sesión de Google', () => {
+    const section = (el: HTMLElement) =>
+      el.querySelector('#session-title')?.closest('section') as HTMLElement;
+
+    it('explica cómo permitir las ventanas emergentes y ofrece renovar por redirección', async () => {
+      const { open, settle } = await setup();
+      const auth = TestBed.inject(AuthService);
+      const setMode = vi.spyOn(auth, 'setRedirectMode');
+      const el = await open('/ajustes');
+
+      expect(section(el).querySelector('details')?.textContent).toContain(
+        'Una página no puede cambiar ese permiso',
+      );
+      expect(section(el).querySelector('.blocked')).toBeNull();
+      const toggle = section(el).querySelector('button.redirect-mode') as HTMLButtonElement;
+      expect(toggle.getAttribute('aria-checked')).toBe('false');
+
+      toggle.click();
+      await settle();
+      expect(setMode).toHaveBeenCalledWith(true);
+    });
+
+    it('avisa si el navegador bloqueó la última ventana y refleja el modo activado', async () => {
+      const { open, settle } = await setup();
+      const auth = TestBed.inject(AuthService) as unknown as {
+        popupBlocked: WritableSignal<boolean>;
+        redirectMode: WritableSignal<boolean>;
+      };
+      const el = await open('/ajustes');
+
+      auth.popupBlocked.set(true);
+      auth.redirectMode.set(true);
+      await settle();
+
+      expect(section(el).querySelector('.blocked')?.textContent).toContain('bloqueó la ventana');
+      expect(section(el).querySelector('.redirect-mode')?.getAttribute('aria-checked')).toBe(
+        'true',
+      );
+      expect(section(el).textContent).toContain('Activado en este dispositivo');
+    });
   });
 
   describe('instalación', () => {

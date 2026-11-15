@@ -181,6 +181,59 @@
   }
 </section>
 
+<section class="session" aria-labelledby="session-title">
+  <h2 id="session-title">Sesión de Google</h2>
+  <p class="hint">
+    La sesión se renueva cada hora en una pequeña ventana de Google que se cierra sola. Si el
+    navegador bloquea las ventanas emergentes, tendrá que pulsar «Reanudar sesión» cada vez.
+  </p>
+  @if (popupBlocked()) {
+    <p class="hint blocked" role="status">
+      <mat-icon aria-hidden="true">block</mat-icon>
+      La última vez, este navegador bloqueó la ventana de Google.
+    </p>
+  }
+  <details>
+    <summary>Cómo permitir las ventanas emergentes</summary>
+    <p>
+      Una página no puede cambiar ese permiso: hay que darlo en el navegador, solo para este sitio.
+    </p>
+    <ul>
+      <li>
+        <strong>Chrome en Android</strong>: menú ⋮ → Configuración → Configuración de sitios →
+        Ventanas emergentes y redirecciones → añada este sitio a los permitidos.
+      </li>
+      <li>
+        <strong>Chrome o Edge en el ordenador</strong>: pulse el icono que hay a la izquierda de la
+        dirección → Configuración del sitio → Ventanas emergentes y redirecciones → Permitir.
+      </li>
+      <li>
+        <strong>Safari en iPhone o iPad</strong>: Ajustes → Safari → desactive «Bloquear ventanas».
+      </li>
+    </ul>
+  </details>
+  <button
+    matButton="tonal"
+    type="button"
+    role="switch"
+    class="redirect-mode"
+    [attr.aria-checked]="redirectMode()"
+    (click)="toggleRedirectMode()"
+  >
+    <mat-icon>{{ redirectMode() ? 'toggle_on' : 'toggle_off' }}</mat-icon>
+    Renovar sin ventana emergente
+  </button>
+  <p class="hint">
+    @if (redirectMode()) {
+      Activado en este dispositivo: para renovar la sesión, la página va un momento a Google y
+      vuelve. Al abrir la aplicación con la sesión caducada se renueva sola.
+    } @else {
+      Si no puede permitir las ventanas emergentes, active esta opción: la página irá un momento a
+      Google y volverá, en esta misma ventana.
+    }
+  </p>
+</section>
+
 <section aria-labelledby="install-title">
   <h2 id="install-title">Instalar la aplicación</h2>
   @switch (installState()) {

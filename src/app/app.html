@@ -92,7 +92,12 @@
 
 @if (status() === 'expired' && online()) {
   <div class="resume" role="alert">
-    <span>{{ resumeError() ?? 'La sesión ha caducado. Toca la pantalla para reanudarla.' }}</span>
+    <span>{{
+      resumeError() ??
+        (redirectMode()
+          ? 'La sesión ha caducado.'
+          : 'La sesión ha caducado. Toca la pantalla para reanudarla.')
+    }}</span>
     <button matButton="tonal" type="button" (click)="resume()">Reanudar sesión</button>
   </div>
 }

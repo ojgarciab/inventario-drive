@@ -19,6 +19,11 @@
     <button matButton="filled" type="button" [disabled]="busy()" (click)="signIn()">
       Iniciar sesión con Google
     </button>
+    @if (redirectMode()) {
+      <button matButton type="button" class="with-popup" [disabled]="busy()" (click)="signIn(true)">
+        Usar ventana emergente
+      </button>
+    }
   </mat-card-actions>
 </mat-card>
 

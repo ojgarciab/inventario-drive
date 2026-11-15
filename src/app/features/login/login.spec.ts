@@ -1,13 +1,22 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { AuthError, AuthService } from '../../core/auth/auth-service';
 import { Login } from './login';
 
 describe('Login', () => {
-  async function render(signIn: () => Promise<void>) {
+  async function render(
+    signIn: (options?: { popup?: boolean }) => Promise<void>,
+    redirect: { mode?: boolean; error?: string } = {},
+  ) {
+    const auth = {
+      signIn,
+      redirectMode: signal(redirect.mode === true),
+      redirectError: signal(redirect.error ?? null),
+    };
     await TestBed.configureTestingModule({
       imports: [Login],
-      providers: [provideRouter([]), { provide: AuthService, useValue: { signIn } }],
+      providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
     }).compileComponents();
     const fixture = TestBed.createComponent(Login);
     await fixture.whenStable();
@@ -29,6 +38,30 @@ describe('Login', () => {
     await fixture.whenStable();
     expect(el.querySelector('[role="alert"]')?.textContent).toContain('Se cerró la ventana');
     expect(el.querySelector('button')?.disabled).toBe(false);
+  });
+
+  it('en modo de redirección ofrece también la ventana emergente', async () => {
+    const signIn = vi.fn().mockResolvedValue(undefined);
+    const fixture = await render(signIn, { mode: true });
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const el = fixture.nativeElement as HTMLElement;
+
+    el.querySelector<HTMLButtonElement>('button.with-popup')?.click();
+    await fixture.whenStable();
+
+    expect(signIn).toHaveBeenCalledWith({ popup: true });
+  });
+
+  it('sin modo de redirección no muestra esa opción', async () => {
+    const fixture = await render(() => Promise.resolve());
+    expect((fixture.nativeElement as HTMLElement).querySelector('.with-popup')).toBeNull();
+  });
+
+  it('explica el error si la redirección a Google no se completó', async () => {
+    const fixture = await render(() => Promise.resolve(), { mode: true, error: 'redirect_failed' });
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent,
+    ).toContain('Pruebe con la ventana emergente');
   });
 
   it('informa del almacenamiento en el navegador y enlaza los textos legales', async () => {
